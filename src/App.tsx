@@ -71,21 +71,26 @@ export default function App() {
 
   // Sync listener across tabs and all devices via SSE
   useEffect(() => {
-    const unsubscribe = onVotesUpdated((latestVotes) => {
-      setVotes(latestVotes);
-    });
+    const unsubscribe = onVotesUpdated(
+      (latestVotes) => {
+        setVotes(latestVotes);
+      },
+      () => {
+        // System-wide reset initiated by Admin: clear local voting locks so this device can re-vote
+        clearLocalVoterStatus();
+        setHasVoted(false);
+        setUserReceipt(null);
+        showToast('ผู้ดูแลระบบได้รีเซ็ตคะแนนทั้งหมดแล้ว ทุกคนที่ได้รับลิงก์สามารถโหวตใหม่ได้ทันที');
+      }
+    );
     return () => unsubscribe();
   }, []);
 
   // Check remote voter status on load
   useEffect(() => {
     checkRemoteVoterStatus().then((status) => {
-      if (status.hasVoted) {
-        setHasVoted(true);
-        if (status.vote) {
-          setUserReceipt(status.vote);
-        }
-      }
+      setHasVoted(status.hasVoted);
+      setUserReceipt(status.vote || null);
     });
   }, []);
 
@@ -144,6 +149,10 @@ export default function App() {
     try {
       const latest = await fetchRemoteVotes();
       setVotes(latest);
+      // Synchronize voter status from server in case votes were reset
+      const status = await checkRemoteVoterStatus();
+      setHasVoted(status.hasVoted);
+      setUserReceipt(status.vote || null);
       showToast(`รีเฟรชคะแนนทั้งหมดเรียบร้อยแล้ว รวมสะสมล่าสุด ${latest.length} คะแนน`);
     } catch (err) {
       console.warn('Failed to refresh votes:', err);
@@ -192,8 +201,11 @@ export default function App() {
       return;
     }
     await resetAllVotes('2569');
+    clearLocalVoterStatus();
     setVotes([]);
-    showToast('รีเซ็ตคะแนนโหวตทั้งหมดเรียบร้อยแล้ว');
+    setHasVoted(false);
+    setUserReceipt(null);
+    showToast('รีเซ็ตคะแนนโหวตทั้งหมดเรียบร้อยแล้ว ทุกคนที่ได้รับลิงก์สามารถโหวตใหม่ได้ทันที');
   };
 
   const handleRestoreDemo = async () => {

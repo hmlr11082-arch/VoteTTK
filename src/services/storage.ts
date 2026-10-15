@@ -158,7 +158,7 @@ export const clearLocalVoterStatus = (): void => {
 export const checkRemoteVoterStatus = async (): Promise<{ hasVoted: boolean; vote?: VoteRecord | null }> => {
   const deviceId = getVoterDeviceId();
   try {
-    const res = await fetch(`/api/votes/status?voterDeviceId=${encodeURIComponent(deviceId)}`);
+    const res = await fetch(`/api/votes/status?voterDeviceId=${encodeURIComponent(deviceId)}&_t=${Date.now()}`);
     if (res.ok) {
       const data = await res.json();
       if (data.hasVoted) {
@@ -167,6 +167,11 @@ export const checkRemoteVoterStatus = async (): Promise<{ hasVoted: boolean; vot
           localStorage.setItem(USER_RECEIPT_KEY, JSON.stringify(data.vote));
         }
         return { hasVoted: true, vote: data.vote };
+      } else {
+        // When server has no vote for this device (e.g. after Admin Reset or fresh session)
+        // Clear local storage lock so the user is free to vote again
+        clearLocalVoterStatus();
+        return { hasVoted: false, vote: null };
       }
     }
   } catch (err) {
@@ -207,7 +212,7 @@ export const fetchRemoteVotes = async (): Promise<VoteRecord[]> => {
   }
 };
 
-// Save vote to centralized server & local cache (1 vote per person)
+// Save vote to centralized server & local cache (1 vote per person per round)
 export const saveVote = async (vote: VoteRecord): Promise<VoteRecord[]> => {
   const deviceId = getVoterDeviceId();
   const voteWithDevice: VoteRecord = {
@@ -215,9 +220,12 @@ export const saveVote = async (vote: VoteRecord): Promise<VoteRecord[]> => {
     voterDeviceId: vote.voterDeviceId || deviceId,
   };
 
-  // 1. Guard against double-voting locally
+  // 1. Guard against double-voting locally, but verify against server in case admin reset
   if (hasUserVotedLocally()) {
-    throw new Error('คุณได้ใช้ สิทธิโหวดแล้ว ขอบคุณค่ะ');
+    const remote = await checkRemoteVoterStatus();
+    if (remote.hasVoted) {
+      throw new Error('คุณได้ใช้ สิทธิโหวดแล้ว ขอบคุณค่ะ');
+    }
   }
 
   // 2. Post to centralized server so ALL users receive it
@@ -264,8 +272,9 @@ export const saveVote = async (vote: VoteRecord): Promise<VoteRecord[]> => {
   }
 };
 
-// Reset all votes on centralized server
+// Reset all votes on centralized server & unlock voting for everyone
 export const resetAllVotes = async (pin: string = '2569'): Promise<void> => {
+  clearLocalVoterStatus();
   localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify([]));
   if (broadcastChannel) {
     broadcastChannel.postMessage({ type: 'RESET_VOTES' });
@@ -303,12 +312,25 @@ export const restoreDemoVotes = async (pin: string = '2569'): Promise<VoteRecord
 };
 
 // Real-time synchronization across all devices and tabs via SSE + BroadcastChannel
-export const onVotesUpdated = (callback: (votes: VoteRecord[]) => void): (() => void) => {
+export const onVotesUpdated = (
+  callback: (votes: VoteRecord[]) => void,
+  onReset?: () => void
+): (() => void) => {
   let eventSource: EventSource | null = null;
   let pollInterval: any = null;
 
-  // 1. Initial remote fetch
-  fetchRemoteVotes().then((v) => callback(v));
+  // 1. Initial remote fetch & sync check
+  fetchRemoteVotes().then((v) => {
+    callback(v);
+    if (v.length === 0 && hasUserVotedLocally()) {
+      checkRemoteVoterStatus().then((status) => {
+        if (!status.hasVoted) {
+          clearLocalVoterStatus();
+          if (onReset) onReset();
+        }
+      });
+    }
+  });
 
   // 2. Setup Server-Sent Events (SSE) for instant cross-device live updates
   try {
@@ -317,10 +339,18 @@ export const onVotesUpdated = (callback: (votes: VoteRecord[]) => void): (() => 
 
       eventSource.addEventListener('init', (e: MessageEvent) => {
         try {
-          const remoteVotes = JSON.parse(e.data);
-          if (Array.isArray(remoteVotes)) {
-            localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(remoteVotes));
-            callback(remoteVotes);
+          const parsed = JSON.parse(e.data);
+          const remoteVotes = Array.isArray(parsed) ? parsed : (parsed?.votes || []);
+          localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(remoteVotes));
+          callback(remoteVotes);
+
+          if (remoteVotes.length === 0 && hasUserVotedLocally()) {
+            checkRemoteVoterStatus().then((status) => {
+              if (!status.hasVoted) {
+                clearLocalVoterStatus();
+                if (onReset) onReset();
+              }
+            });
           }
         } catch {}
       });
@@ -336,8 +366,12 @@ export const onVotesUpdated = (callback: (votes: VoteRecord[]) => void): (() => 
       });
 
       eventSource.addEventListener('reset', () => {
+        clearLocalVoterStatus();
         localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify([]));
         callback([]);
+        if (onReset) {
+          onReset();
+        }
       });
 
       eventSource.addEventListener('restore_demo', (e: MessageEvent) => {
@@ -353,8 +387,16 @@ export const onVotesUpdated = (callback: (votes: VoteRecord[]) => void): (() => 
       eventSource.onerror = () => {
         // Fallback polling if SSE disconnects temporarily
         if (!pollInterval) {
-          pollInterval = setInterval(() => {
-            fetchRemoteVotes().then((v) => callback(v));
+          pollInterval = setInterval(async () => {
+            const v = await fetchRemoteVotes();
+            callback(v);
+            if (v.length === 0 && hasUserVotedLocally()) {
+              const status = await checkRemoteVoterStatus();
+              if (!status.hasVoted) {
+                clearLocalVoterStatus();
+                if (onReset) onReset();
+              }
+            }
           }, 4000);
         }
       };
@@ -372,8 +414,16 @@ export const onVotesUpdated = (callback: (votes: VoteRecord[]) => void): (() => 
 
   // 3. Fallback polling interval (runs every 6s to guarantee consistency)
   if (!pollInterval) {
-    pollInterval = setInterval(() => {
-      fetchRemoteVotes().then((v) => callback(v));
+    pollInterval = setInterval(async () => {
+      const v = await fetchRemoteVotes();
+      callback(v);
+      if (v.length === 0 && hasUserVotedLocally()) {
+        const status = await checkRemoteVoterStatus();
+        if (!status.hasVoted) {
+          clearLocalVoterStatus();
+          if (onReset) onReset();
+        }
+      }
     }, 6000);
   }
 
@@ -381,11 +431,19 @@ export const onVotesUpdated = (callback: (votes: VoteRecord[]) => void): (() => 
   const handleStorage = (e: StorageEvent) => {
     if (e.key === STORAGE_VOTES_KEY) {
       callback(getStoredVotes());
+    } else if (e.key === HAS_VOTED_KEY && !e.newValue) {
+      if (onReset) onReset();
     }
   };
 
   const handleBroadcast = (event: MessageEvent) => {
-    if (event.data?.type) {
+    if (event.data?.type === 'RESET_VOTES') {
+      clearLocalVoterStatus();
+      callback([]);
+      if (onReset) {
+        onReset();
+      }
+    } else if (event.data?.type) {
       callback(getStoredVotes());
     }
   };

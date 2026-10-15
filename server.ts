@@ -26,12 +26,17 @@ if (!fs.existsSync(DATA_DIR)) {
 
 // In-memory cache + file sync
 let votes: any[] = [];
+let resetVersion: number = Date.now();
+
 if (fs.existsSync(DATA_FILE)) {
   try {
     const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-    votes = JSON.parse(raw);
-    if (!Array.isArray(votes)) {
-      votes = [];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      votes = parsed;
+    } else if (parsed && Array.isArray(parsed.votes)) {
+      votes = parsed.votes;
+      resetVersion = parsed.resetVersion || Date.now();
     }
   } catch (err) {
     console.error('Failed to parse existing votes.json:', err);
@@ -41,7 +46,7 @@ if (fs.existsSync(DATA_FILE)) {
 
 function persistVotes() {
   try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(votes, null, 2), 'utf-8');
+    fs.writeFileSync(DATA_FILE, JSON.stringify({ votes, resetVersion }, null, 2), 'utf-8');
   } catch (err) {
     console.error('Failed to write votes to file:', err);
   }
@@ -63,7 +68,7 @@ function broadcast(type: string, data: any) {
 
 // API Routes
 app.get('/api/votes', (req, res) => {
-  res.json({ success: true, votes, count: votes.length });
+  res.json({ success: true, votes, count: votes.length, resetVersion });
 });
 
 // Real-time SSE stream for all connected devices
@@ -74,7 +79,7 @@ app.get('/api/votes/stream', (req, res) => {
   res.flushHeaders?.();
 
   // Send current state immediately on connect
-  res.write(`event: init\ndata: ${JSON.stringify(votes)}\n\n`);
+  res.write(`event: init\ndata: ${JSON.stringify({ votes, resetVersion })}\n\n`);
 
   sseClients.add(res);
 
@@ -98,13 +103,14 @@ app.get('/api/votes/stream', (req, res) => {
 app.get('/api/votes/status', (req, res) => {
   const voterDeviceId = req.query.voterDeviceId as string;
   if (!voterDeviceId) {
-    return res.json({ hasVoted: false });
+    return res.json({ hasVoted: false, resetVersion });
   }
   const existingVote = votes.find((v: any) => v.voterDeviceId === voterDeviceId);
   res.json({
     hasVoted: Boolean(existingVote),
     vote: existingVote || null,
     totalVotes: votes.length,
+    resetVersion,
   });
 });
 
@@ -120,7 +126,7 @@ app.post('/api/votes', (req, res) => {
     return res.status(400).json({ error: 'ข้อมูลการโหวตไม่ถูกต้อง ต้องเลือก 1-2 ท่าน' });
   }
 
-  // Enforce 1 vote per voter/device
+  // Enforce 1 vote per voter/device in current active votes
   if (newVote.voterDeviceId) {
     const existingVoteByDevice = votes.find(
       (v: any) => v.voterDeviceId === newVote.voterDeviceId && v.id !== newVote.id
@@ -143,12 +149,12 @@ app.post('/api/votes', (req, res) => {
   }
 
   persistVotes();
-  broadcast('new_vote', { vote: newVote, allVotes: votes });
+  broadcast('new_vote', { vote: newVote, allVotes: votes, resetVersion });
 
-  res.status(201).json({ success: true, vote: newVote, totalVotes: votes.length });
+  res.status(201).json({ success: true, vote: newVote, totalVotes: votes.length, resetVersion });
 });
 
-// Admin Reset
+// Admin Reset: Wipe all votes, increment resetVersion, broadcast to allow all link holders to vote again
 app.post('/api/votes/reset', (req, res) => {
   const { pin } = req.body;
   if (pin !== '2569' && pin !== '1234') {
@@ -156,10 +162,15 @@ app.post('/api/votes/reset', (req, res) => {
   }
 
   votes = [];
+  resetVersion = Date.now();
   persistVotes();
-  broadcast('reset', { allVotes: [] });
+  broadcast('reset', { allVotes: [], resetVersion });
 
-  res.json({ success: true, message: 'รีเซ็ตคะแนนโหวตทั้งหมดเรียบร้อย' });
+  res.json({
+    success: true,
+    message: 'รีเซ็ตคะแนนโหวตทั้งหมดเรียบร้อยแล้ว ทุกคนสามารถโหวตใหม่ได้ทันที',
+    resetVersion,
+  });
 });
 
 // Admin Restore Demo
@@ -171,11 +182,17 @@ app.post('/api/votes/restore-demo', (req, res) => {
 
   if (Array.isArray(demoVotes)) {
     votes = demoVotes;
+    resetVersion = Date.now();
     persistVotes();
-    broadcast('restore_demo', { allVotes: votes });
+    broadcast('restore_demo', { allVotes: votes, resetVersion });
   }
 
-  res.json({ success: true, message: 'โหลดข้อมูลตัวอย่างเรียบร้อย', totalVotes: votes.length });
+  res.json({
+    success: true,
+    message: 'โหลดข้อมูลตัวอย่างเรียบร้อย',
+    totalVotes: votes.length,
+    resetVersion,
+  });
 });
 
 // Vite dev middleware or production static serving

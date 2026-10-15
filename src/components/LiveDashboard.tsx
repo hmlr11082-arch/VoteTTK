@@ -603,8 +603,8 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
             <h3 className="text-base font-bold text-slate-800 mb-1">
               ยืนยันการรีเซ็ตคะแนนโหวตทั้งหมด?
             </h3>
-            <p className="text-xs text-slate-500 mb-5">
-              ข้อมูลการโหวตปัจจุบันทั้งหมด {votes.length} รายการ จะถูกล้างออกและเริ่มนับหนึ่งใหม่
+            <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+              คะแนนโหวตปัจจุบันทั้งหมด {votes.length} รายการ จะถูกล้างเป็นศูนย์ คืนค่าเริ่มต้นทั้งหมด และปลดล็อกให้ทุกคนที่ได้รับลิงก์สามารถลงคะแนนโหวตใหม่ได้ทันที
             </p>
             <div className="flex gap-2">
               <button
