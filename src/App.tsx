@@ -92,8 +92,14 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Check remote voter status and load persistent Google Sheet config on load
+  // Check remote voter status, load votes and persistent Google Sheet config on load
   useEffect(() => {
+    fetchRemoteVotes().then((v) => {
+      if (v) {
+        setVotes(v);
+      }
+    });
+
     checkRemoteVoterStatus().then((status) => {
       setHasVoted(status.hasVoted);
       setUserReceipt(status.vote || null);
@@ -336,6 +342,7 @@ export default function App() {
             onResetVotes={handleResetVotes}
             onRestoreDemo={handleRestoreDemo}
             onGoToReport={() => scrollTo('section-report')}
+            onGoToVote={() => scrollTo('section-vote')}
             onRefreshVotes={handleRefreshVotes}
             isRefreshing={isRefreshing}
             onOpenSheetVerifyModal={() => setIsSheetVerifyModalOpen(true)}

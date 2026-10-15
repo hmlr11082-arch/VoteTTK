@@ -23,22 +23,48 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, onShowT
 
   const shareText = `🏥 ขอเชิญร่วมโหวต "ผู้ช่วยเหลือคนไข้ดีเด่น" โรงพยาบาลท่าคันโท ประจำปี ๒๕๖๙\n✨ เข้าโหวตได้ทันที (ไม่ต้อง Login / ไม่ต้องใช้อีเมล)\n🔗 ${shareUrl}`;
 
-  const handleCopyLink = async () => {
+  const copyToClipboard = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch {
+      // Fallback
+    }
+    try {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const successful = document.execCommand('copy');
+      textArea.remove();
+      return successful;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleCopyLink = async () => {
+    const success = await copyToClipboard(shareUrl);
+    if (success) {
       setCopied(true);
       onShowToast('คัดลอกลิงก์โหวตเรียบร้อยแล้ว! สามารถส่งต่อได้ทันที');
       setTimeout(() => setCopied(false), 2500);
-    } catch {
-      onShowToast('คัดลอกลิงก์สำเร็จ: ' + shareUrl);
+    } else {
+      onShowToast('คัดลอกลิงก์: ' + shareUrl);
     }
   };
 
   const handleCopyMessage = async () => {
-    try {
-      await navigator.clipboard.writeText(shareText);
+    const success = await copyToClipboard(shareText);
+    if (success) {
       onShowToast('คัดลอกข้อความสำหรับส่ง LINE เรียบร้อยแล้ว!');
-    } catch {
+    } else {
       onShowToast('คัดลอกข้อความสำเร็จ');
     }
   };
@@ -165,6 +191,16 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, onShowT
             <Share2 className="w-4 h-4" />
             <span>กดส่งแชร์ไปยังแอปอื่น</span>
           </button>
+        </div>
+
+        {/* Tip for Line / Mobile Browser */}
+        <div className="mb-4 bg-amber-50/80 border border-amber-200/80 rounded-2xl p-3 text-[11px] text-amber-900 leading-relaxed">
+          <p className="font-bold flex items-center gap-1 text-amber-800">
+            <span>💡 ข้อแนะนำในการเปิดลิงก์บนมือถือ / LINE:</span>
+          </p>
+          <p className="text-slate-600 mt-0.5">
+            หากเปิดลิงก์แล้วติดหน้า <strong>"Cookie check"</strong> หรือ <strong>"Action required"</strong> ให้กดปุ่ม <strong>"Authenticate in new window"</strong> หรือแตะจุด 3 จุดมุมบนขวาใน LINE แล้วเลือก <strong>"เปิดด้วยเบราว์เซอร์อื่น (Open in Chrome/Safari)"</strong> เพื่อเข้าสู่หน้าโหวตได้ทันที
+          </p>
         </div>
 
         <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">

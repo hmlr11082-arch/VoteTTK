@@ -35,6 +35,7 @@ interface LiveDashboardProps {
   onResetVotes: () => void;
   onRestoreDemo: () => void;
   onGoToReport: () => void;
+  onGoToVote?: () => void;
   onRefreshVotes?: () => void;
   isRefreshing?: boolean;
   onOpenSheetVerifyModal?: () => void;
@@ -49,6 +50,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
   onResetVotes,
   onRestoreDemo,
   onGoToReport,
+  onGoToVote,
   onRefreshVotes,
   isRefreshing = false,
   onOpenSheetVerifyModal,
@@ -372,13 +374,24 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
             รายชื่อผู้ได้รับคะแนนโหวตสูงสุดและโพเดียมอันดับ ๑ - ๓ จะแสดงที่นี่ทันทีเมื่อมีผู้ร่วมลงคะแนนโหวต
           </p>
           <div className="pt-2 flex items-center justify-center gap-3">
-            <a
-              href="#section-vote"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 transition-colors"
+            <button
+              type="button"
+              onClick={() => {
+                if (onGoToVote) {
+                  onGoToVote();
+                } else {
+                  const el = document.getElementById('section-vote');
+                  if (el) {
+                    const y = el.getBoundingClientRect().top + window.pageYOffset - 90;
+                    window.scrollTo({ top: y, behavior: 'smooth' });
+                  }
+                }
+              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 transition-colors cursor-pointer"
             >
               <Vote className="w-3.5 h-3.5" />
               <span>ไปที่หน้าโหวตลงคะแนน</span>
-            </a>
+            </button>
             {isAdmin && (
               <button
                 onClick={onRestoreDemo}
@@ -481,7 +494,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                   {/* Rank badge */}
                   <div
                     className={`w-8 h-8 rounded-xl flex items-center justify-center font-extrabold text-xs shrink-0 ${
-                      stats.totalVotes === 0
+                      stats.totalVotes === 0 || t.voteCount === 0
                         ? 'bg-slate-100 text-slate-400'
                         : t.rank === 1
                         ? 'bg-amber-400 text-amber-950 shadow-xs'
@@ -492,7 +505,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                         : 'bg-white text-slate-600 border border-slate-200'
                     }`}
                   >
-                    {stats.totalVotes === 0 ? '-' : t.rank}
+                    {stats.totalVotes === 0 || t.voteCount === 0 ? '-' : t.rank}
                   </div>
 
                   {/* Candidate mini avatar */}
@@ -531,7 +544,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                     <div className="w-full bg-slate-200/70 h-2 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-700 ${
-                          t.rank === 1
+                          t.rank === 1 && t.voteCount > 0
                             ? 'bg-gradient-to-r from-amber-400 to-emerald-500'
                             : 'bg-gradient-to-r from-emerald-500 to-teal-500'
                         }`}
@@ -592,12 +605,13 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                   <div className="flex flex-wrap gap-1.5">
                     {vote.selectedCandidateIds.map((cid) => {
                       const candidate = candidates.find((c) => c.id === cid);
+                      if (!candidate) return null;
                       return (
                         <span
                           key={cid}
                           className="px-2 py-0.5 rounded-lg bg-emerald-100/70 text-emerald-800 text-[11px] font-medium border border-emerald-200/50"
                         >
-                          #{candidate?.number} {candidate?.nickname}
+                          #{candidate.number} {candidate.nickname}
                         </span>
                       );
                     })}

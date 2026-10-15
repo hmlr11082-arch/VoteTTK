@@ -406,7 +406,7 @@ export const GoogleSheetsView: React.FC<GoogleSheetsViewProps> = ({
                   </button>
 
                   <a
-                    href={sheetInfo.spreadsheetUrl}
+                    href={sheetInfo.spreadsheetUrl || `https://docs.google.com/spreadsheets/d/${sheetInfo.spreadsheetId}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-colors"

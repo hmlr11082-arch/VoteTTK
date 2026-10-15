@@ -1,4 +1,29 @@
 {
-  "votes": [],
-  "resetVersion": 1792039867433
+  "votes": [
+    {
+      "id": "TKTH-945919",
+      "voterName": "พว.รัตนาภรณ์",
+      "voterRole": "พยาบาลวิชาชีพ",
+      "voterDepartment": "ห้องคลอด (LR)",
+      "selectedCandidateIds": [
+        "gen-1",
+        "lr-2"
+      ],
+      "note": "ช่วยงานอย่างเต็มที่",
+      "timestamp": "2026-10-15T07:05:45.919Z"
+    },
+    {
+      "id": "TKTH-343381",
+      "voterName": "ผู้ร่วมโหวต (ไม่ประสงค์ออกนาม)",
+      "voterRole": "เจ้าหน้าที่ รพ.ท่าคันโท",
+      "voterDepartment": "กลุ่มงานการพยาบาล",
+      "selectedCandidateIds": [
+        "lr-2",
+        "lr-1"
+      ],
+      "timestamp": "2026-10-15T06:55:43.381Z",
+      "voterDeviceId": "DEV-fhz9844-mv96eu2c"
+    }
+  ],
+  "resetVersion": 1792046978438
 }

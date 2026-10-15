@@ -110,10 +110,10 @@ export const VotingView: React.FC<VotingViewProps> = ({
       id: voteId,
       voterName: voterName.trim() || 'ผู้ร่วมโหวต (ไม่ประสงค์ออกนาม)',
       voterRole,
-      voterDepartment: voterDepartment.trim() || 'โรงพยาบาลท่าคันโท',
+      voterDepartment: voterDepartment.trim() || 'กลุ่มงานการพยาบาล',
       selectedCandidateIds: selectedIds,
-      note: note.trim() || undefined,
       timestamp: new Date().toISOString(),
+      ...(note.trim() ? { note: note.trim() } : {}),
     };
 
     setTimeout(() => {

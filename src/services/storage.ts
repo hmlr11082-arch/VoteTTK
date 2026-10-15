@@ -237,38 +237,99 @@ export const getStoredVotes = (): VoteRecord[] => {
   }
 };
 
-// Fetch latest votes from centralized Firestore (aggregating from everyone across devices)
-export const fetchRemoteVotes = async (): Promise<VoteRecord[]> => {
-  // 1. Try Firestore (primary source of truth across all devices and shared links)
-  try {
-    const q = query(collection(db, 'votes'), orderBy('timestamp', 'desc'));
-    const snap = await getDocs(q);
-    const votesList: VoteRecord[] = [];
-    snap.forEach((docSnap) => {
-      votesList.push(docSnap.data() as VoteRecord);
-    });
-
-    localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(votesList));
-    return votesList;
-  } catch (err) {
-    console.warn('Firestore fetch failed, trying server API:', err);
+// Helper to clean VoteRecord for Firestore (strictly NO undefined properties allowed by Firestore SDK)
+export const cleanVoteForFirestore = (vote: VoteRecord): Record<string, any> => {
+  const clean: Record<string, any> = {
+    id: vote.id,
+    voterName: vote.voterName || 'ผู้ร่วมโหวต (ไม่ประสงค์ออกนาม)',
+    voterRole: vote.voterRole || 'เจ้าหน้าที่ รพ.ท่าคันโท',
+    voterDepartment: vote.voterDepartment || 'กลุ่มงานการพยาบาล',
+    selectedCandidateIds: Array.isArray(vote.selectedCandidateIds) ? vote.selectedCandidateIds : [],
+    timestamp: vote.timestamp || new Date().toISOString(),
+  };
+  if (vote.note && vote.note.trim()) {
+    clean.note = vote.note.trim();
   }
+  if (vote.voterDeviceId) {
+    clean.voterDeviceId = vote.voterDeviceId;
+  }
+  return clean;
+};
 
-  // 2. Fallback to server API
+// Background helper to ensure all votes exist in Firestore
+export const syncMissingVotesToFirestore = async (votesToSync: VoteRecord[]): Promise<void> => {
+  try {
+    const snap = await getDocs(collection(db, 'votes'));
+    const existingIds = new Set<string>();
+    snap.forEach((d) => existingIds.add(d.id));
+
+    const missing = votesToSync.filter((v) => v && v.id && !existingIds.has(v.id));
+    if (missing.length > 0) {
+      const batch = writeBatch(db);
+      missing.forEach((v) => {
+        const clean = cleanVoteForFirestore(v);
+        batch.set(doc(db, 'votes', clean.id), clean);
+      });
+      await batch.commit();
+    }
+  } catch (err) {
+    console.warn('Background sync to Firestore skipped:', err);
+  }
+};
+
+// Fetch latest votes from centralized Firestore & Server API (merging both so no votes are ever lost)
+export const fetchRemoteVotes = async (): Promise<VoteRecord[]> => {
+  const votesMap = new Map<string, VoteRecord>();
+
+  // 1. Fetch from Server API
   try {
     const res = await fetch('/api/votes?_t=' + Date.now());
     if (res.ok) {
       const data = await res.json();
       if (data && Array.isArray(data.votes)) {
-        localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(data.votes));
-        return data.votes;
+        data.votes.forEach((v: VoteRecord) => {
+          if (v && v.id) votesMap.set(v.id, v);
+        });
       }
     }
   } catch (err) {
-    console.warn('Server API fetch failed, using local cache:', err);
+    console.warn('Server API fetch warning:', err);
   }
 
-  return getStoredVotes();
+  // 2. Fetch from Firestore (primary cloud store)
+  try {
+    const q = query(collection(db, 'votes'), orderBy('timestamp', 'desc'));
+    const snap = await getDocs(q);
+    snap.forEach((docSnap) => {
+      const v = docSnap.data() as VoteRecord;
+      if (v && v.id) {
+        votesMap.set(v.id, v);
+      }
+    });
+  } catch (err) {
+    console.warn('Firestore fetch warning:', err);
+  }
+
+  // 3. Fallback to local storage if both remote sources are empty but local has votes
+  if (votesMap.size === 0) {
+    const local = getStoredVotes();
+    local.forEach((v) => {
+      if (v && v.id) votesMap.set(v.id, v);
+    });
+  }
+
+  const allVotes = Array.from(votesMap.values()).sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+
+  localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(allVotes));
+
+  // Sync any server votes that were not in Firestore
+  if (allVotes.length > 0) {
+    syncMissingVotesToFirestore(allVotes).catch(() => {});
+  }
+
+  return allVotes;
 };
 
 // Save vote to centralized Firestore & server & local cache (1 vote per person per round)
@@ -287,11 +348,12 @@ export const saveVote = async (vote: VoteRecord): Promise<VoteRecord[]> => {
     }
   }
 
+  // Clean data for Firestore so no undefined values cause invalid-argument error
+  const cleanDoc = cleanVoteForFirestore(voteWithDevice);
+
   // 2. Save directly to Cloud Firestore so ALL users on ANY link receive it instantly
-  let firestoreSucceeded = false;
   try {
-    await setDoc(doc(db, 'votes', voteWithDevice.id), voteWithDevice);
-    firestoreSucceeded = true;
+    await setDoc(doc(db, 'votes', cleanDoc.id), cleanDoc);
   } catch (err: any) {
     console.warn('Firestore write warning:', err);
   }
@@ -301,7 +363,7 @@ export const saveVote = async (vote: VoteRecord): Promise<VoteRecord[]> => {
     await fetch('/api/votes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(voteWithDevice),
+      body: JSON.stringify(cleanDoc),
     });
   } catch (err) {
     console.warn('Server API backup write warning:', err);
@@ -309,13 +371,13 @@ export const saveVote = async (vote: VoteRecord): Promise<VoteRecord[]> => {
 
   // 4. Mark locally as voted and store receipt
   localStorage.setItem(HAS_VOTED_KEY, 'true');
-  localStorage.setItem(USER_RECEIPT_KEY, JSON.stringify(voteWithDevice));
+  localStorage.setItem(USER_RECEIPT_KEY, JSON.stringify(cleanDoc));
 
   if (broadcastChannel) {
-    broadcastChannel.postMessage({ type: 'NEW_VOTE', vote: voteWithDevice });
+    broadcastChannel.postMessage({ type: 'NEW_VOTE', vote: cleanDoc });
   }
 
-  // Return fresh aggregated votes from Firestore
+  // Return fresh aggregated votes from merged stores
   return await fetchRemoteVotes();
 };
 
@@ -439,13 +501,23 @@ export const onVotesUpdated = (
         snapshot.forEach((docSnap) => {
           votesList.push(docSnap.data() as VoteRecord);
         });
-        localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(votesList));
-        callback(votesList);
-
-        // If votes are emptied (e.g. by admin reset), unlock local voting
-        if (votesList.length === 0 && hasUserVotedLocally()) {
-          clearLocalVoterStatus();
-          if (onReset) onReset();
+        if (votesList.length > 0) {
+          localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(votesList));
+          callback(votesList);
+        } else {
+          // If Firestore returns 0 documents, verify if server or local cache still has votes
+          fetchRemoteVotes().then((merged) => {
+            if (merged.length > 0) {
+              callback(merged);
+            } else {
+              localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify([]));
+              callback([]);
+              if (hasUserVotedLocally()) {
+                clearLocalVoterStatus();
+                if (onReset) onReset();
+              }
+            }
+          });
         }
       },
       (err) => {
