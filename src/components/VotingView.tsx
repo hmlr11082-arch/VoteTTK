@@ -29,6 +29,11 @@ interface VotingViewProps {
   onVoteSubmit: (vote: VoteRecord) => void;
   onGoToDashboard: () => void;
   onOpenShare?: () => void;
+  hasVoted?: boolean;
+  userReceipt?: VoteRecord | null;
+  onUnlockTestVote?: () => void;
+  isAdmin?: boolean;
+  onShowToast?: (msg: string) => void;
 }
 
 export const VotingView: React.FC<VotingViewProps> = ({
@@ -36,6 +41,11 @@ export const VotingView: React.FC<VotingViewProps> = ({
   onVoteSubmit,
   onGoToDashboard,
   onOpenShare,
+  hasVoted = false,
+  userReceipt = null,
+  onUnlockTestVote,
+  isAdmin = false,
+  onShowToast,
 }) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeFilter, setActiveFilter] = useState<Department | 'ALL'>('ALL');
@@ -50,7 +60,17 @@ export const VotingView: React.FC<VotingViewProps> = ({
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const effectiveReceipt = userReceipt || showReceipt;
+  const votedCandidateIds = effectiveReceipt?.selectedCandidateIds || [];
+  const candidateMap = new Map(candidates.map((c) => [c.id, c]));
+
   const toggleSelect = (id: string) => {
+    if (hasVoted) {
+      if (onShowToast) {
+        onShowToast('คุณได้ใช้ สิทธิโหวดแล้ว ขอบคุณค่ะ');
+      }
+      return;
+    }
     if (selectedIds.includes(id)) {
       setSelectedIds(selectedIds.filter((item) => item !== id));
     } else {
@@ -63,12 +83,25 @@ export const VotingView: React.FC<VotingViewProps> = ({
   };
 
   const handleOpenModal = () => {
+    if (hasVoted) {
+      if (onShowToast) {
+        onShowToast('คุณได้ใช้ สิทธิโหวดแล้ว ขอบคุณค่ะ');
+      }
+      return;
+    }
     if (selectedIds.length === 0) return;
     setIsModalOpen(true);
   };
 
   const handleSubmitVote = (e: React.FormEvent) => {
     e.preventDefault();
+    if (hasVoted) {
+      if (onShowToast) {
+        onShowToast('คุณได้ใช้ สิทธิโหวดแล้ว ขอบคุณค่ะ');
+      }
+      setIsModalOpen(false);
+      return;
+    }
     if (selectedIds.length === 0 || selectedIds.length > 2) return;
 
     setIsSubmitting(true);
@@ -151,6 +184,12 @@ export const VotingView: React.FC<VotingViewProps> = ({
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
                 <span>เปิดให้ลงคะแนนได้ทันที • ไม่ต้องใช้อีเมล</span>
               </div>
+              {hasVoted && (
+                <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-300 text-amber-950 font-bold text-xs sm:text-sm shadow-md animate-pulse">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-800" />
+                  <span>คุณได้ใช้ สิทธิโหวดแล้ว ขอบคุณค่ะ</span>
+                </div>
+              )}
               {onOpenShare && (
                 <button
                   type="button"
@@ -182,6 +221,80 @@ export const VotingView: React.FC<VotingViewProps> = ({
         </div>
       </div>
 
+      {/* Has Voted Prominent Status Banner */}
+      {hasVoted && (
+        <div className="mb-8 rounded-3xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-100/80 border-2 border-emerald-400 p-6 sm:p-7 shadow-lg shadow-emerald-600/10 animate-in fade-in slide-in-from-top-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                <CheckCircle2 className="w-7 h-7 text-emerald-100" />
+              </div>
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-600/15 text-emerald-900 text-xs font-bold mb-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>บันทึกสิทธิ์เรียบร้อยแล้ว (1 ท่าน / 1 ครั้ง)</span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">
+                  คุณได้ใช้ สิทธิโหวดแล้ว ขอบคุณค่ะ
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-xl leading-relaxed">
+                  ระบบได้บันทึกคะแนนโหวตของคุณเข้าสู่ระบบกลางของโรงพยาบาลท่าคันโทเรียบร้อยแล้ว ทุกคะแนนจากทุกคนที่ได้รับลิงก์จะถูกนำมารวมสะสมกันที่แดชบอร์ดสรุปผลแบบเรียลไทม์
+                </p>
+                {effectiveReceipt && effectiveReceipt.selectedCandidateIds.length > 0 && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                    <span className="font-semibold text-emerald-800">ผู้ที่คุณได้ลงคะแนนให้:</span>
+                    {effectiveReceipt.selectedCandidateIds.map((cid) => {
+                      const cand = candidateMap.get(cid);
+                      if (!cand) return null;
+                      return (
+                        <span
+                          key={cid}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white border border-emerald-300 text-emerald-900 font-bold shadow-2xs"
+                        >
+                          <span className="text-emerald-600 font-extrabold">#{cand.number}</span>
+                          <span>{cand.name}</span>
+                          <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-extrabold">({cand.nickname})</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center flex-wrap sm:flex-col sm:items-end gap-2.5 shrink-0 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={onGoToDashboard}
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+              >
+                <span>ดูคะแนนรวมสะสม (Dashboard)</span>
+              </button>
+              {onOpenShare && (
+                <button
+                  type="button"
+                  onClick={onOpenShare}
+                  className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-300 text-xs sm:text-sm font-semibold transition-all cursor-pointer"
+                >
+                  <Share2 className="w-4 h-4 text-emerald-600" />
+                  <span>แชร์ต่อให้เพื่อนร่วมงาน</span>
+                </button>
+              )}
+              {isAdmin && onUnlockTestVote && (
+                <button
+                  type="button"
+                  onClick={onUnlockTestVote}
+                  className="text-[11px] text-amber-700 hover:text-amber-800 hover:underline pt-1 cursor-pointer"
+                >
+                  [โหมดแอดมิน: ปลดล็อกสิทธิ์เพื่อทดสอบโหวตใหม่]
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Control Bar: Filters & Search */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-6">
         {/* Department Filters */}
@@ -194,7 +307,7 @@ export const VotingView: React.FC<VotingViewProps> = ({
                 : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-emerald-50 hover:text-emerald-700'
             }`}
           >
-            ทั้งหมด (18)
+            ทั้งหมด ({candidates.length})
           </button>
           {DEPARTMENTS.map((dept) => {
             const count = candidates.filter((c) => c.department === dept.key).length;
@@ -303,6 +416,7 @@ export const VotingView: React.FC<VotingViewProps> = ({
         {filteredCandidates.map((c) => {
           const isSelected = selectedIds.includes(c.id);
           const isMaxReached = selectedIds.length >= 2 && !isSelected;
+          const isVotedByMe = hasVoted && votedCandidateIds.includes(c.id);
           const dept = DEPARTMENTS.find((d) => d.key === c.department);
 
           return (
@@ -310,7 +424,11 @@ export const VotingView: React.FC<VotingViewProps> = ({
               key={c.id}
               onClick={() => toggleSelect(c.id)}
               className={`relative group bg-white rounded-3xl p-5 border-2 transition-all duration-200 cursor-pointer overflow-hidden ${
-                isSelected
+                hasVoted
+                  ? isVotedByMe
+                    ? 'border-emerald-500 bg-emerald-50/40 shadow-lg shadow-emerald-500/15 ring-2 ring-emerald-400'
+                    : 'border-slate-100 opacity-75 hover:opacity-90'
+                  : isSelected
                   ? 'border-emerald-500 bg-emerald-50/30 shadow-lg shadow-emerald-500/10 ring-2 ring-emerald-500/30'
                   : isMaxReached
                   ? 'border-slate-100 opacity-60 hover:opacity-85'
@@ -322,7 +440,11 @@ export const VotingView: React.FC<VotingViewProps> = ({
                 <div className="flex items-center gap-2.5">
                   <span
                     className={`w-9 h-9 rounded-2xl flex items-center justify-center font-extrabold text-sm ${
-                      isSelected
+                      hasVoted
+                        ? isVotedByMe
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600'
+                        : isSelected
                         ? 'bg-emerald-600 text-white shadow-xs'
                         : 'bg-emerald-50 text-emerald-800 border border-emerald-100'
                     }`}
@@ -341,12 +463,20 @@ export const VotingView: React.FC<VotingViewProps> = ({
                 {/* Selection Checkbox Pill */}
                 <div
                   className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
-                    isSelected
+                    hasVoted
+                      ? isVotedByMe
+                        ? 'bg-emerald-500 text-white shadow-xs'
+                        : 'border border-slate-200 bg-slate-50 text-slate-300'
+                      : isSelected
                       ? 'bg-emerald-500 text-white shadow-sm'
                       : 'border-2 border-slate-300 group-hover:border-emerald-400 bg-white'
                   }`}
                 >
-                  {isSelected && <Check className="w-4 h-4 stroke-[3]" />}
+                  {hasVoted ? (
+                    isVotedByMe ? <Check className="w-4 h-4 stroke-[3]" /> : null
+                  ) : (
+                    isSelected && <Check className="w-4 h-4 stroke-[3]" />
+                  )}
                 </div>
               </div>
 
@@ -382,18 +512,36 @@ export const VotingView: React.FC<VotingViewProps> = ({
               {/* Card Bottom CTA */}
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                 <span className="text-[11px] text-slate-400">
-                  {isSelected ? '✓ ท่านนี้ถูกเลือกแล้ว' : isMaxReached ? 'ครบ 2 ท่านแล้ว' : 'กดเพื่อเลือกคนนี้'}
+                  {hasVoted
+                    ? isVotedByMe
+                      ? '✓ ท่านนี้ที่คุณได้ลงคะแนนให้'
+                      : 'คุณได้ใช้สิทธิโหวตแล้ว'
+                    : isSelected
+                    ? '✓ ท่านนี้ถูกเลือกแล้ว'
+                    : isMaxReached
+                    ? 'ครบ 2 ท่านแล้ว'
+                    : 'กดเพื่อเลือกคนนี้'}
                 </span>
                 <span
                   className={`text-xs font-semibold px-3 py-1 rounded-xl transition-colors ${
-                    isSelected
+                    hasVoted
+                      ? isVotedByMe
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-100 text-slate-400'
+                      : isSelected
                       ? 'bg-emerald-600 text-white'
                       : isMaxReached
                       ? 'bg-slate-100 text-slate-400'
                       : 'bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100'
                   }`}
                 >
-                  {isSelected ? 'ยกเลิก' : 'เลือก'}
+                  {hasVoted
+                    ? isVotedByMe
+                      ? 'โหวตแล้ว'
+                      : 'ใช้สิทธิ์แล้ว'
+                    : isSelected
+                    ? 'ยกเลิก'
+                    : 'เลือก'}
                 </span>
               </div>
             </div>
@@ -401,8 +549,8 @@ export const VotingView: React.FC<VotingViewProps> = ({
         })}
       </div>
 
-      {/* Floating Action Bar (Sticky at bottom when selections exist) */}
-      {selectedIds.length > 0 && (
+      {/* Floating Action Bar (Sticky at bottom when selections exist, only before voting) */}
+      {!hasVoted && selectedIds.length > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-2xl z-30 animate-in slide-in-from-bottom duration-300">
           <div className="bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl border-2 border-emerald-200 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 overflow-hidden">

@@ -23,6 +23,7 @@ import {
   Crown,
   Medal,
   FileSpreadsheet,
+  RotateCw,
 } from 'lucide-react';
 
 interface LiveDashboardProps {
@@ -33,6 +34,8 @@ interface LiveDashboardProps {
   onResetVotes: () => void;
   onRestoreDemo: () => void;
   onGoToReport: () => void;
+  onRefreshVotes?: () => void;
+  isRefreshing?: boolean;
 }
 
 export const LiveDashboard: React.FC<LiveDashboardProps> = ({
@@ -43,6 +46,8 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
   onResetVotes,
   onRestoreDemo,
   onGoToReport,
+  onRefreshVotes,
+  isRefreshing = false,
 }) => {
   const [deptFilter, setDeptFilter] = useState<Department | 'ALL'>('ALL');
   const [sortBy, setSortBy] = useState<'rank' | 'number'>('rank');
@@ -115,22 +120,35 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
             แดชบอร์ดสรุปคะแนนโหวตสด โรงพยาบาลท่าคันโท
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            อัปเดตข้อมูลอัตโนมัติแบบเรียลไทม์เมื่อมีผู้ลงคะแนนเข้ามาใหม่
+            อัปเดตข้อมูลอัตโนมัติแบบเรียลไทม์ โดยรวมคะแนนจากทุกคนที่ได้รับลิงก์แชร์เข้าสู่ระบบกลางทันที
           </p>
         </div>
 
         {/* Action Controls */}
         <div className="flex items-center flex-wrap gap-2.5">
+          {/* Refresh Scores Button */}
+          {onRefreshVotes && (
+            <button
+              onClick={onRefreshVotes}
+              disabled={isRefreshing}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 transition-all shadow-2xs cursor-pointer active:scale-95 disabled:opacity-60"
+              title="กดเพื่อรวมคะแนนสะสมล่าสุดจากทุกคนที่ได้รับลิงก์แชร์"
+            >
+              <RotateCw className={`w-4 h-4 text-emerald-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>{isRefreshing ? 'กำลังรวมคะแนน...' : 'รีเฟรชคะแนน'}</span>
+            </button>
+          )}
+
           <button
             onClick={onGoToReport}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 transition-colors cursor-pointer"
           >
             <Download className="w-4 h-4" />
             <span>สร้างเอกสาร A4 PDF</span>
           </button>
           <button
             onClick={exportCSV}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
             <span>ส่งออก CSV</span>
@@ -397,7 +415,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-100 mb-5">
             <div>
               <h3 className="text-lg font-bold text-slate-800">
-                ตารางอันดับคะแนนรายบุคคล (๑๘ ท่าน)
+                ตารางอันดับคะแนนรายบุคคล ({candidates.length} ท่าน)
               </h3>
               <p className="text-xs text-slate-500">
                 เรียงตามลำดับคะแนนโหวตสูงสุดไปต่ำสุด
@@ -419,7 +437,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                 onChange={(e) => setDeptFilter(e.target.value as any)}
                 className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700"
               >
-                <option value="ALL">ทุกแผนก (18 ท่าน)</option>
+                <option value="ALL">ทุกแผนก ({candidates.length} ท่าน)</option>
                 <option value="GENERAL">ผู้ช่วยเหลือคนไข้ทั่วไป</option>
                 <option value="OPD">เจ้าหน้าที่ OPD</option>
                 <option value="IPD">เจ้าหน้าที่ IPD</option>

@@ -13,6 +13,7 @@ export interface Candidate {
 
 export interface VoteRecord {
   id: string;
+  voterDeviceId?: string; // Unique client device identifier to enforce 1 vote per voter
   voterName: string;
   voterRole: string; // e.g. 'เจ้าหน้าที่ รพ.ท่าคันโท', 'ผู้รับบริการ/คนไข้', 'ญาติคนไข้'
   voterDepartment?: string;
@@ -69,7 +70,7 @@ export const DEPARTMENTS: { key: Department; label: string; short: string; color
 ];
 
 export const INITIAL_CANDIDATES: Candidate[] = [
-  // 1. ผู้ช่วยเหลือคนไข้ทั่วไป (5 ท่าน)
+  // 1. ผู้ช่วยเหลือคนไข้ทั่วไป (4 ท่าน)
   {
     id: 'gen-1',
     number: 1,
@@ -101,18 +102,8 @@ export const INITIAL_CANDIDATES: Candidate[] = [
     roleDescription: 'ผู้ช่วยเหลือคนไข้ สุภาพ ใจเย็น อาสาช่วยงานเสมอ',
   },
   {
-    id: 'gen-4',
-    number: 4,
-    name: 'นายณัฐพงษ์ หงษาบาล',
-    nickname: 'เบส',
-    department: 'GENERAL',
-    departmentLabel: 'ผู้ช่วยเหลือคนไข้ทั่วไป',
-    avatarColor: 'from-green-400 to-teal-600',
-    roleDescription: 'ผู้ช่วยเหลือคนไข้ พร้อมรับมือสถานการณ์ฉุกเฉิน รวดเร็ว',
-  },
-  {
     id: 'gen-5',
-    number: 5,
+    number: 4,
     name: 'นายจิระศักดิ์ นาเมืองรักษ์',
     nickname: 'เปี๊ยก',
     department: 'GENERAL',
@@ -124,7 +115,7 @@ export const INITIAL_CANDIDATES: Candidate[] = [
   // 2. เจ้าหน้าที่ OPD (3 ท่าน)
   {
     id: 'opd-1',
-    number: 6,
+    number: 5,
     name: 'นายเกียรติศักดิ์ ราชบัณฑิต',
     nickname: 'หมู',
     department: 'OPD',
@@ -134,7 +125,7 @@ export const INITIAL_CANDIDATES: Candidate[] = [
   },
   {
     id: 'opd-2',
-    number: 7,
+    number: 6,
     name: 'น.ส.นุสรา สนธาทร',
     nickname: 'เม',
     department: 'OPD',
@@ -144,7 +135,7 @@ export const INITIAL_CANDIDATES: Candidate[] = [
   },
   {
     id: 'opd-3',
-    number: 8,
+    number: 7,
     name: 'น.ส.จารุภา นรพัฒน์',
     nickname: 'ขวัญ',
     department: 'OPD',
@@ -156,7 +147,7 @@ export const INITIAL_CANDIDATES: Candidate[] = [
   // 3. เจ้าหน้าที่ IPD (6 ท่าน)
   {
     id: 'ipd-1',
-    number: 9,
+    number: 8,
     name: 'น.ส.ธันยารัตน์ นากองศรี',
     nickname: 'พี่หนิด',
     department: 'IPD',
@@ -166,7 +157,7 @@ export const INITIAL_CANDIDATES: Candidate[] = [
   },
   {
     id: 'ipd-2',
-    number: 10,
+    number: 9,
     name: 'น.ส.รุ่งณวรรณ์ สาโรจน์',
     nickname: 'พี่รุ่ง',
     department: 'IPD',
@@ -176,7 +167,7 @@ export const INITIAL_CANDIDATES: Candidate[] = [
   },
   {
     id: 'ipd-3',
-    number: 11,
+    number: 10,
     name: 'น.ส.พันธ์วิรา ศรีเศรษฐา',
     nickname: 'ลำใย',
     department: 'IPD',
@@ -186,7 +177,7 @@ export const INITIAL_CANDIDATES: Candidate[] = [
   },
   {
     id: 'ipd-4',
-    number: 12,
+    number: 11,
     name: 'น.ส.น้ำฝน ใชยพรม',
     nickname: 'ป๊อป',
     department: 'IPD',
@@ -196,7 +187,7 @@ export const INITIAL_CANDIDATES: Candidate[] = [
   },
   {
     id: 'ipd-5',
-    number: 13,
+    number: 12,
     name: 'น.ส.พัชรพร ไชยเนตร',
     nickname: 'อิ๋ว',
     department: 'IPD',
@@ -206,7 +197,7 @@ export const INITIAL_CANDIDATES: Candidate[] = [
   },
   {
     id: 'ipd-6',
-    number: 14,
+    number: 13,
     name: 'น.ส.ศุภวรรณ วิบุญกุล',
     nickname: 'เจนนี่',
     department: 'IPD',
@@ -218,7 +209,7 @@ export const INITIAL_CANDIDATES: Candidate[] = [
   // 4. เจ้าหน้าที่ LR (4 ท่าน)
   {
     id: 'lr-1',
-    number: 15,
+    number: 14,
     name: 'นางเพ็ง วงค์อินตา',
     nickname: 'ยายน้อย',
     department: 'LR',
@@ -228,7 +219,7 @@ export const INITIAL_CANDIDATES: Candidate[] = [
   },
   {
     id: 'lr-2',
-    number: 16,
+    number: 15,
     name: 'นางธีรวรรณ กุลชร',
     nickname: 'ยายแดง',
     department: 'LR',
@@ -238,7 +229,7 @@ export const INITIAL_CANDIDATES: Candidate[] = [
   },
   {
     id: 'lr-3',
-    number: 17,
+    number: 16,
     name: 'นางหนูบาน สิงห์จรรยา',
     nickname: 'พี่นก',
     department: 'LR',
@@ -248,7 +239,7 @@ export const INITIAL_CANDIDATES: Candidate[] = [
   },
   {
     id: 'lr-4',
-    number: 18,
+    number: 17,
     name: 'น.ส.เจศฎาภรณ์ กรไชยา',
     nickname: 'น้องเบียร์บี้',
     department: 'LR',

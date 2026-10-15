@@ -468,7 +468,7 @@ export const A4ReportView: React.FC<A4ReportViewProps> = ({ stats, candidates })
                 className="text-xs font-bold mb-1.5 flex items-center justify-between"
                 style={{ color: '#1e293b' }}
               >
-                <span>ตารางสรุปผลคะแนนโหวตผู้สมัครทั้งหมด ๑๘ ท่าน</span>
+                <span>ตารางสรุปผลคะแนนโหวตผู้สมัครทั้งหมด {candidates.length} ท่าน</span>
                 {stats.totalVotes === 0 && (
                   <span className="text-[10px] font-normal" style={{ color: '#94a3b8' }}>
                     * สถานะ: ยังไม่เริ่มการนับคะแนนโหวต

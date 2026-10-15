@@ -3,8 +3,8 @@ import { Candidate, CandidateTally, Department, INITIAL_CANDIDATES, VoteRecord, 
 const STORAGE_VOTES_KEY = 'thakhantho_patient_helper_votes_v1';
 const BROADCAST_CHANNEL_NAME = 'thakhantho_vote_sync_channel';
 
-// Initial realistic demo votes for Tha Khan Tho Hospital
-const SEED_VOTES: VoteRecord[] = [
+// Realistic initial demo votes for Tha Khan Tho Hospital
+export const SEED_VOTES: VoteRecord[] = [
   {
     id: 'TKTH-VOTE-101',
     voterName: 'พว.สุดารัตน์ เจริญสุข',
@@ -19,8 +19,8 @@ const SEED_VOTES: VoteRecord[] = [
     voterName: 'นพ.กิตติพงษ์ วิริยะกุล',
     voterRole: 'แพทย์ประจำโรงพยาบาล',
     voterDepartment: 'กลุ่มงานการแพทย์',
-    selectedCandidateIds: ['gen-4', 'opd-1'],
-    note: 'น้องเบส และพี่หมู บริการว่องไว ประสานงานฉุกเฉินได้ยอดเยี่ยม',
+    selectedCandidateIds: ['gen-5', 'opd-1'],
+    note: 'พี่เปี๊ยก และพี่หมู บริการว่องไว ประสานงานฉุกเฉินได้ยอดเยี่ยม',
     timestamp: new Date(Date.now() - 1000 * 60 * 150).toISOString(),
   },
   {
@@ -82,8 +82,8 @@ const SEED_VOTES: VoteRecord[] = [
     voterName: 'นายสมบัติ ศรีหาตา',
     voterRole: 'พนักงานขับรถพยาบาล',
     voterDepartment: 'หน่วยอุบัติเหตุและฉุกเฉิน',
-    selectedCandidateIds: ['gen-1', 'gen-4'],
-    note: 'น้องหลงและน้องเบส ช่วยส่งต่อคนไข้ฉุกเฉินรวดเร็ว ปลอดภัย',
+    selectedCandidateIds: ['gen-1', 'gen-3'],
+    note: 'น้องหลงและน้องมิตร ช่วยส่งต่อคนไข้ฉุกเฉินรวดเร็ว ปลอดภัย',
     timestamp: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
   },
   {
@@ -115,11 +115,71 @@ try {
   // Ignore fallback
 }
 
+const VOTER_DEVICE_ID_KEY = 'thakhantho_voter_device_id';
+const HAS_VOTED_KEY = 'thakhantho_has_voted';
+const USER_RECEIPT_KEY = 'thakhantho_user_receipt';
+
+// Get or create unique persistent device identifier for voter
+export const getVoterDeviceId = (): string => {
+  if (typeof window === 'undefined') return 'server-device';
+  let deviceId = localStorage.getItem(VOTER_DEVICE_ID_KEY);
+  if (!deviceId) {
+    deviceId = 'DEV-' + Math.random().toString(36).substring(2, 9) + '-' + Date.now().toString(36);
+    localStorage.setItem(VOTER_DEVICE_ID_KEY, deviceId);
+  }
+  return deviceId;
+};
+
+// Check if user has already voted on this device locally
+export const hasUserVotedLocally = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(HAS_VOTED_KEY) === 'true';
+};
+
+// Get stored vote receipt for current device
+export const getUserVoteReceipt = (): VoteRecord | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(USER_RECEIPT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+// Clear local vote status (e.g. for testing in Admin Mode)
+export const clearLocalVoterStatus = (): void => {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(HAS_VOTED_KEY);
+  localStorage.removeItem(USER_RECEIPT_KEY);
+};
+
+// Check with centralized server if this device has already cast a vote
+export const checkRemoteVoterStatus = async (): Promise<{ hasVoted: boolean; vote?: VoteRecord | null }> => {
+  const deviceId = getVoterDeviceId();
+  try {
+    const res = await fetch(`/api/votes/status?voterDeviceId=${encodeURIComponent(deviceId)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.hasVoted) {
+        localStorage.setItem(HAS_VOTED_KEY, 'true');
+        if (data.vote) {
+          localStorage.setItem(USER_RECEIPT_KEY, JSON.stringify(data.vote));
+        }
+        return { hasVoted: true, vote: data.vote };
+      }
+    }
+  } catch (err) {
+    console.warn('Could not verify voter status from server:', err);
+  }
+  return { hasVoted: hasUserVotedLocally(), vote: getUserVoteReceipt() };
+};
+
+// Read local synchronous fallback
 export const getStoredVotes = (): VoteRecord[] => {
   try {
     const raw = localStorage.getItem(STORAGE_VOTES_KEY);
     if (!raw) {
-      // Start with empty votes by default
       localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify([]));
       return [];
     }
@@ -130,44 +190,203 @@ export const getStoredVotes = (): VoteRecord[] => {
   }
 };
 
-export const saveVote = (vote: VoteRecord): VoteRecord[] => {
-  const current = getStoredVotes();
-  const updated = [vote, ...current];
-  localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(updated));
-
-  // Notify other tabs
-  if (broadcastChannel) {
-    broadcastChannel.postMessage({ type: 'NEW_VOTE', vote });
+// Fetch latest votes from centralized server (aggregating from everyone)
+export const fetchRemoteVotes = async (): Promise<VoteRecord[]> => {
+  try {
+    const res = await fetch('/api/votes?_t=' + Date.now());
+    if (!res.ok) throw new Error('Failed to fetch remote votes');
+    const data = await res.json();
+    if (data && Array.isArray(data.votes)) {
+      localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(data.votes));
+      return data.votes;
+    }
+    return getStoredVotes();
+  } catch (err) {
+    console.warn('Using local cached votes:', err);
+    return getStoredVotes();
   }
-
-  return updated;
 };
 
-export const resetAllVotes = (): void => {
+// Save vote to centralized server & local cache (1 vote per person)
+export const saveVote = async (vote: VoteRecord): Promise<VoteRecord[]> => {
+  const deviceId = getVoterDeviceId();
+  const voteWithDevice: VoteRecord = {
+    ...vote,
+    voterDeviceId: vote.voterDeviceId || deviceId,
+  };
+
+  // 1. Guard against double-voting locally
+  if (hasUserVotedLocally()) {
+    throw new Error('คุณได้ใช้ สิทธิโหวดแล้ว ขอบคุณค่ะ');
+  }
+
+  // 2. Post to centralized server so ALL users receive it
+  try {
+    const res = await fetch('/api/votes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(voteWithDevice),
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      if (errJson.error) {
+        if (errJson.hasVoted) {
+          localStorage.setItem(HAS_VOTED_KEY, 'true');
+        }
+        throw new Error(errJson.error);
+      }
+      throw new Error('เกิดข้อผิดพลาดในการส่งคะแนนโหวต กรุณาลองใหม่อีกครั้ง');
+    }
+
+    // 3. Mark locally as voted and store receipt
+    localStorage.setItem(HAS_VOTED_KEY, 'true');
+    localStorage.setItem(USER_RECEIPT_KEY, JSON.stringify(voteWithDevice));
+
+    if (broadcastChannel) {
+      broadcastChannel.postMessage({ type: 'NEW_VOTE', vote: voteWithDevice });
+    }
+
+    // Fetch fresh aggregated votes from server
+    return await fetchRemoteVotes();
+  } catch (err: any) {
+    if (err.message && err.message.includes('คุณได้ใช้ สิทธิโหวดแล้ว ขอบคุณค่ะ')) {
+      localStorage.setItem(HAS_VOTED_KEY, 'true');
+      throw err;
+    }
+    // Network fallback: still enforce local vote
+    localStorage.setItem(HAS_VOTED_KEY, 'true');
+    localStorage.setItem(USER_RECEIPT_KEY, JSON.stringify(voteWithDevice));
+    const current = getStoredVotes();
+    const updated = [voteWithDevice, ...current.filter((v) => v.id !== voteWithDevice.id)];
+    localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(updated));
+    return updated;
+  }
+};
+
+// Reset all votes on centralized server
+export const resetAllVotes = async (pin: string = '2569'): Promise<void> => {
   localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify([]));
   if (broadcastChannel) {
     broadcastChannel.postMessage({ type: 'RESET_VOTES' });
   }
+
+  try {
+    await fetch('/api/votes/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin }),
+    });
+  } catch (err) {
+    console.warn('Failed to call reset API:', err);
+  }
 };
 
-export const restoreDemoVotes = (): VoteRecord[] => {
+// Restore demo votes on centralized server
+export const restoreDemoVotes = async (pin: string = '2569'): Promise<VoteRecord[]> => {
   localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(SEED_VOTES));
   if (broadcastChannel) {
     broadcastChannel.postMessage({ type: 'RESTORE_DEMO' });
   }
+
+  try {
+    await fetch('/api/votes/restore-demo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin, demoVotes: SEED_VOTES }),
+    });
+  } catch (err) {
+    console.warn('Failed to call restore-demo API:', err);
+  }
+
   return SEED_VOTES;
 };
 
-export const onVotesUpdated = (callback: () => void): (() => void) => {
+// Real-time synchronization across all devices and tabs via SSE + BroadcastChannel
+export const onVotesUpdated = (callback: (votes: VoteRecord[]) => void): (() => void) => {
+  let eventSource: EventSource | null = null;
+  let pollInterval: any = null;
+
+  // 1. Initial remote fetch
+  fetchRemoteVotes().then((v) => callback(v));
+
+  // 2. Setup Server-Sent Events (SSE) for instant cross-device live updates
+  try {
+    if (typeof window !== 'undefined' && 'EventSource' in window) {
+      eventSource = new EventSource('/api/votes/stream');
+
+      eventSource.addEventListener('init', (e: MessageEvent) => {
+        try {
+          const remoteVotes = JSON.parse(e.data);
+          if (Array.isArray(remoteVotes)) {
+            localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(remoteVotes));
+            callback(remoteVotes);
+          }
+        } catch {}
+      });
+
+      eventSource.addEventListener('new_vote', (e: MessageEvent) => {
+        try {
+          const parsed = JSON.parse(e.data);
+          if (parsed && Array.isArray(parsed.allVotes)) {
+            localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(parsed.allVotes));
+            callback(parsed.allVotes);
+          }
+        } catch {}
+      });
+
+      eventSource.addEventListener('reset', () => {
+        localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify([]));
+        callback([]);
+      });
+
+      eventSource.addEventListener('restore_demo', (e: MessageEvent) => {
+        try {
+          const parsed = JSON.parse(e.data);
+          if (parsed && Array.isArray(parsed.allVotes)) {
+            localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(parsed.allVotes));
+            callback(parsed.allVotes);
+          }
+        } catch {}
+      });
+
+      eventSource.onerror = () => {
+        // Fallback polling if SSE disconnects temporarily
+        if (!pollInterval) {
+          pollInterval = setInterval(() => {
+            fetchRemoteVotes().then((v) => callback(v));
+          }, 4000);
+        }
+      };
+
+      eventSource.onopen = () => {
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = null;
+        }
+      };
+    }
+  } catch (err) {
+    console.warn('SSE not supported or failed to connect:', err);
+  }
+
+  // 3. Fallback polling interval (runs every 6s to guarantee consistency)
+  if (!pollInterval) {
+    pollInterval = setInterval(() => {
+      fetchRemoteVotes().then((v) => callback(v));
+    }, 6000);
+  }
+
+  // 4. Local browser storage & multi-tab listeners
   const handleStorage = (e: StorageEvent) => {
     if (e.key === STORAGE_VOTES_KEY) {
-      callback();
+      callback(getStoredVotes());
     }
   };
 
   const handleBroadcast = (event: MessageEvent) => {
     if (event.data?.type) {
-      callback();
+      callback(getStoredVotes());
     }
   };
 
@@ -177,6 +396,12 @@ export const onVotesUpdated = (callback: () => void): (() => void) => {
   }
 
   return () => {
+    if (eventSource) {
+      eventSource.close();
+    }
+    if (pollInterval) {
+      clearInterval(pollInterval);
+    }
     window.removeEventListener('storage', handleStorage);
     if (broadcastChannel) {
       broadcastChannel.removeEventListener('message', handleBroadcast);

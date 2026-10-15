@@ -8,11 +8,16 @@ import { User } from 'firebase/auth';
 import { INITIAL_CANDIDATES, VoteRecord, VotingStats } from './types/voting';
 import {
   getStoredVotes,
+  fetchRemoteVotes,
   saveVote,
   resetAllVotes,
   restoreDemoVotes,
   computeVotingStats,
   onVotesUpdated,
+  hasUserVotedLocally,
+  getUserVoteReceipt,
+  checkRemoteVoterStatus,
+  clearLocalVoterStatus,
 } from './services/storage';
 import {
   initAuth,
@@ -51,6 +56,11 @@ export default function App() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
+  // Voter 1-time enforcement state
+  const [hasVoted, setHasVoted] = useState<boolean>(() => hasUserVotedLocally());
+  const [userReceipt, setUserReceipt] = useState<VoteRecord | null>(() => getUserVoteReceipt());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   // Admin access state: Default false so shared users are Voters only
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
     return localStorage.getItem('thakhantho_is_admin') === 'true';
@@ -59,12 +69,24 @@ export default function App() {
   const [adminPinInput, setAdminPinInput] = useState('');
   const [adminPinError, setAdminPinError] = useState('');
 
-  // Sync listener across tabs
+  // Sync listener across tabs and all devices via SSE
   useEffect(() => {
-    const unsubscribe = onVotesUpdated(() => {
-      setVotes(getStoredVotes());
+    const unsubscribe = onVotesUpdated((latestVotes) => {
+      setVotes(latestVotes);
     });
     return () => unsubscribe();
+  }, []);
+
+  // Check remote voter status on load
+  useEffect(() => {
+    checkRemoteVoterStatus().then((status) => {
+      if (status.hasVoted) {
+        setHasVoted(true);
+        if (status.vote) {
+          setUserReceipt(status.vote);
+        }
+      }
+    });
   }, []);
 
   // Back to top indicator
@@ -117,38 +139,69 @@ export default function App() {
     }
   };
 
-  const handleVoteSubmit = async (vote: VoteRecord) => {
-    const updated = saveVote(vote);
-    setVotes(updated);
-    showToast('บันทึกคะแนนโหวตของคุณเรียบร้อยแล้ว!');
+  const handleRefreshVotes = async () => {
+    setIsRefreshing(true);
+    try {
+      const latest = await fetchRemoteVotes();
+      setVotes(latest);
+      showToast(`รีเฟรชคะแนนทั้งหมดเรียบร้อยแล้ว รวมสะสมล่าสุด ${latest.length} คะแนน`);
+    } catch (err) {
+      console.warn('Failed to refresh votes:', err);
+      showToast('รีเฟรชคะแนนเรียบร้อยแล้ว');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
-    // If connected to Google Sheets and token is active, append in background
-    if (sheetInfo && accessToken) {
-      try {
-        const candidateMap = new Map(INITIAL_CANDIDATES.map((c) => [c.id, c]));
-        await appendVoteToSheet(accessToken, sheetInfo.spreadsheetId, vote, candidateMap);
-      } catch (err) {
-        console.warn('Background sync to Google Sheets skipped or failed:', err);
+  const handleVoteSubmit = async (vote: VoteRecord) => {
+    try {
+      const updated = await saveVote(vote);
+      setVotes(updated);
+      setHasVoted(true);
+      setUserReceipt(vote);
+      showToast('บันทึกคะแนนโหวตของคุณเรียบร้อยแล้ว! (รวมคะแนนส่วนกลางแล้ว)');
+
+      // If connected to Google Sheets and token is active, append in background
+      if (sheetInfo && accessToken) {
+        try {
+          const candidateMap = new Map(INITIAL_CANDIDATES.map((c) => [c.id, c]));
+          await appendVoteToSheet(accessToken, sheetInfo.spreadsheetId, vote, candidateMap);
+        } catch (err) {
+          console.warn('Background sync to Google Sheets skipped or failed:', err);
+        }
+      }
+    } catch (err: any) {
+      const errorMsg = err.message || 'เกิดข้อผิดพลาดในการโหวต';
+      showToast(errorMsg);
+      if (errorMsg.includes('คุณได้ใช้ สิทธิโหวดแล้ว ขอบคุณค่ะ')) {
+        setHasVoted(true);
       }
     }
   };
 
-  const handleResetVotes = () => {
+  const handleUnlockTestVote = () => {
+    clearLocalVoterStatus();
+    setHasVoted(false);
+    setUserReceipt(null);
+    showToast('ปลดล็อกสิทธิ์โหวตเครื่องนี้แล้ว (สำหรับทดสอบในโหมดผู้ดูแลระบบ)');
+  };
+
+  const handleResetVotes = async () => {
     if (!isAdmin) {
       showToast('เฉพาะผู้ดูแลระบบเท่านั้นที่มีสิทธิ์รีเซ็ตคะแนน');
       return;
     }
-    resetAllVotes();
+    await resetAllVotes('2569');
     setVotes([]);
     showToast('รีเซ็ตคะแนนโหวตทั้งหมดเรียบร้อยแล้ว');
   };
 
-  const handleRestoreDemo = () => {
+  const handleRestoreDemo = async () => {
     if (!isAdmin) {
       showToast('เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถโหลดข้อมูลตัวอย่างได้');
       return;
     }
-    const demo = restoreDemoVotes();
+    const demo = await restoreDemoVotes('2569');
     setVotes(demo);
     showToast('โหลดข้อมูลคะแนนตัวอย่างเรียบร้อยแล้ว');
   };
@@ -221,6 +274,11 @@ export default function App() {
             onVoteSubmit={handleVoteSubmit}
             onGoToDashboard={() => scrollTo('section-dashboard')}
             onOpenShare={() => setIsShareModalOpen(true)}
+            hasVoted={hasVoted}
+            userReceipt={userReceipt}
+            onUnlockTestVote={handleUnlockTestVote}
+            isAdmin={isAdmin}
+            onShowToast={showToast}
           />
         </section>
 
@@ -240,6 +298,8 @@ export default function App() {
             onResetVotes={handleResetVotes}
             onRestoreDemo={handleRestoreDemo}
             onGoToReport={() => scrollTo('section-report')}
+            onRefreshVotes={handleRefreshVotes}
+            isRefreshing={isRefreshing}
           />
         </section>
 

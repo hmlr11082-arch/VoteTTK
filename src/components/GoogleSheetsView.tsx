@@ -77,7 +77,7 @@ export const GoogleSheetsView: React.FC<GoogleSheetsViewProps> = ({
     setConfirmDialog({
       isOpen: true,
       title: 'ซิงค์ข้อมูลคะแนนโหวตทั้งหมดไปยัง Google Sheets?',
-      description: `ระบบจะส่งข้อมูลบันทึกการโหวตทั้งหมด ${votes.length} รายการ และคำนวณสรุปตารางอันดับ 18 ท่าน ไปยัง Google Sheet ของคุณ`,
+      description: `ระบบจะส่งข้อมูลบันทึกการโหวตทั้งหมด ${votes.length} รายการ และคำนวณสรุปตารางอันดับ ${candidates.length} ท่าน ไปยัง Google Sheet ของคุณ`,
       actionType: 'sync',
     });
   };
