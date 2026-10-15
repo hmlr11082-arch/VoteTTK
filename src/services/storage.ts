@@ -1,4 +1,17 @@
 import { Candidate, CandidateTally, Department, INITIAL_CANDIDATES, VoteRecord, VotingStats } from '../types/voting';
+import { db, validateFirestoreConnection } from './firebase';
+import {
+  collection,
+  doc,
+  getDocs,
+  getDoc,
+  setDoc,
+  deleteDoc,
+  onSnapshot,
+  writeBatch,
+  query,
+  orderBy,
+} from 'firebase/firestore';
 
 const STORAGE_VOTES_KEY = 'thakhantho_patient_helper_votes_v1';
 const BROADCAST_CHANNEL_NAME = 'thakhantho_vote_sync_channel';
@@ -119,6 +132,11 @@ const VOTER_DEVICE_ID_KEY = 'thakhantho_voter_device_id';
 const HAS_VOTED_KEY = 'thakhantho_has_voted';
 const USER_RECEIPT_KEY = 'thakhantho_user_receipt';
 
+// Test connection on module load
+if (typeof window !== 'undefined') {
+  validateFirestoreConnection().catch(() => {});
+}
+
 // Get or create unique persistent device identifier for voter
 export const getVoterDeviceId = (): string => {
   if (typeof window === 'undefined') return 'server-device';
@@ -147,16 +165,42 @@ export const getUserVoteReceipt = (): VoteRecord | null => {
   }
 };
 
-// Clear local vote status (e.g. for testing in Admin Mode)
+// Clear local vote status (e.g. for testing in Admin Mode or after Admin Reset)
 export const clearLocalVoterStatus = (): void => {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(HAS_VOTED_KEY);
   localStorage.removeItem(USER_RECEIPT_KEY);
 };
 
-// Check with centralized server if this device has already cast a vote
+// Check with centralized Firestore & server if this device has already cast a vote
 export const checkRemoteVoterStatus = async (): Promise<{ hasVoted: boolean; vote?: VoteRecord | null }> => {
   const deviceId = getVoterDeviceId();
+
+  // 1. Try checking Firestore first
+  try {
+    const snap = await getDocs(collection(db, 'votes'));
+    let foundVote: VoteRecord | null = null;
+    snap.forEach((docSnap) => {
+      const v = docSnap.data() as VoteRecord;
+      if (v.voterDeviceId === deviceId) {
+        foundVote = v;
+      }
+    });
+
+    if (foundVote) {
+      localStorage.setItem(HAS_VOTED_KEY, 'true');
+      localStorage.setItem(USER_RECEIPT_KEY, JSON.stringify(foundVote));
+      return { hasVoted: true, vote: foundVote };
+    } else {
+      // If no vote found in Firestore for this device, clear local lock
+      clearLocalVoterStatus();
+      return { hasVoted: false, vote: null };
+    }
+  } catch (err) {
+    console.warn('Firestore voter check fallback to server API:', err);
+  }
+
+  // 2. Fallback to server API
   try {
     const res = await fetch(`/api/votes/status?voterDeviceId=${encodeURIComponent(deviceId)}&_t=${Date.now()}`);
     if (res.ok) {
@@ -168,15 +212,14 @@ export const checkRemoteVoterStatus = async (): Promise<{ hasVoted: boolean; vot
         }
         return { hasVoted: true, vote: data.vote };
       } else {
-        // When server has no vote for this device (e.g. after Admin Reset or fresh session)
-        // Clear local storage lock so the user is free to vote again
         clearLocalVoterStatus();
         return { hasVoted: false, vote: null };
       }
     }
   } catch (err) {
-    console.warn('Could not verify voter status from server:', err);
+    console.warn('Could not verify voter status from server API:', err);
   }
+
   return { hasVoted: hasUserVotedLocally(), vote: getUserVoteReceipt() };
 };
 
@@ -185,7 +228,6 @@ export const getStoredVotes = (): VoteRecord[] => {
   try {
     const raw = localStorage.getItem(STORAGE_VOTES_KEY);
     if (!raw) {
-      localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify([]));
       return [];
     }
     return JSON.parse(raw);
@@ -195,24 +237,41 @@ export const getStoredVotes = (): VoteRecord[] => {
   }
 };
 
-// Fetch latest votes from centralized server (aggregating from everyone)
+// Fetch latest votes from centralized Firestore (aggregating from everyone across devices)
 export const fetchRemoteVotes = async (): Promise<VoteRecord[]> => {
+  // 1. Try Firestore (primary source of truth across all devices and shared links)
+  try {
+    const q = query(collection(db, 'votes'), orderBy('timestamp', 'desc'));
+    const snap = await getDocs(q);
+    const votesList: VoteRecord[] = [];
+    snap.forEach((docSnap) => {
+      votesList.push(docSnap.data() as VoteRecord);
+    });
+
+    localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(votesList));
+    return votesList;
+  } catch (err) {
+    console.warn('Firestore fetch failed, trying server API:', err);
+  }
+
+  // 2. Fallback to server API
   try {
     const res = await fetch('/api/votes?_t=' + Date.now());
-    if (!res.ok) throw new Error('Failed to fetch remote votes');
-    const data = await res.json();
-    if (data && Array.isArray(data.votes)) {
-      localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(data.votes));
-      return data.votes;
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.votes)) {
+        localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(data.votes));
+        return data.votes;
+      }
     }
-    return getStoredVotes();
   } catch (err) {
-    console.warn('Using local cached votes:', err);
-    return getStoredVotes();
+    console.warn('Server API fetch failed, using local cache:', err);
   }
+
+  return getStoredVotes();
 };
 
-// Save vote to centralized server & local cache (1 vote per person per round)
+// Save vote to centralized Firestore & server & local cache (1 vote per person per round)
 export const saveVote = async (vote: VoteRecord): Promise<VoteRecord[]> => {
   const deviceId = getVoterDeviceId();
   const voteWithDevice: VoteRecord = {
@@ -220,7 +279,7 @@ export const saveVote = async (vote: VoteRecord): Promise<VoteRecord[]> => {
     voterDeviceId: vote.voterDeviceId || deviceId,
   };
 
-  // 1. Guard against double-voting locally, but verify against server in case admin reset
+  // 1. Guard against double-voting locally, verified against centralized Firestore
   if (hasUserVotedLocally()) {
     const remote = await checkRemoteVoterStatus();
     if (remote.hasVoted) {
@@ -228,58 +287,70 @@ export const saveVote = async (vote: VoteRecord): Promise<VoteRecord[]> => {
     }
   }
 
-  // 2. Post to centralized server so ALL users receive it
+  // 2. Save directly to Cloud Firestore so ALL users on ANY link receive it instantly
+  let firestoreSucceeded = false;
   try {
-    const res = await fetch('/api/votes', {
+    await setDoc(doc(db, 'votes', voteWithDevice.id), voteWithDevice);
+    firestoreSucceeded = true;
+  } catch (err: any) {
+    console.warn('Firestore write warning:', err);
+  }
+
+  // 3. Post to local server backend as well
+  try {
+    await fetch('/api/votes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(voteWithDevice),
     });
-
-    if (!res.ok) {
-      const errJson = await res.json().catch(() => ({}));
-      if (errJson.error) {
-        if (errJson.hasVoted) {
-          localStorage.setItem(HAS_VOTED_KEY, 'true');
-        }
-        throw new Error(errJson.error);
-      }
-      throw new Error('เกิดข้อผิดพลาดในการส่งคะแนนโหวต กรุณาลองใหม่อีกครั้ง');
-    }
-
-    // 3. Mark locally as voted and store receipt
-    localStorage.setItem(HAS_VOTED_KEY, 'true');
-    localStorage.setItem(USER_RECEIPT_KEY, JSON.stringify(voteWithDevice));
-
-    if (broadcastChannel) {
-      broadcastChannel.postMessage({ type: 'NEW_VOTE', vote: voteWithDevice });
-    }
-
-    // Fetch fresh aggregated votes from server
-    return await fetchRemoteVotes();
-  } catch (err: any) {
-    if (err.message && err.message.includes('คุณได้ใช้ สิทธิโหวดแล้ว ขอบคุณค่ะ')) {
-      localStorage.setItem(HAS_VOTED_KEY, 'true');
-      throw err;
-    }
-    // Network fallback: still enforce local vote
-    localStorage.setItem(HAS_VOTED_KEY, 'true');
-    localStorage.setItem(USER_RECEIPT_KEY, JSON.stringify(voteWithDevice));
-    const current = getStoredVotes();
-    const updated = [voteWithDevice, ...current.filter((v) => v.id !== voteWithDevice.id)];
-    localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(updated));
-    return updated;
+  } catch (err) {
+    console.warn('Server API backup write warning:', err);
   }
+
+  // 4. Mark locally as voted and store receipt
+  localStorage.setItem(HAS_VOTED_KEY, 'true');
+  localStorage.setItem(USER_RECEIPT_KEY, JSON.stringify(voteWithDevice));
+
+  if (broadcastChannel) {
+    broadcastChannel.postMessage({ type: 'NEW_VOTE', vote: voteWithDevice });
+  }
+
+  // Return fresh aggregated votes from Firestore
+  return await fetchRemoteVotes();
 };
 
-// Reset all votes on centralized server & unlock voting for everyone
+// Reset all votes on centralized Firestore & server & unlock voting for everyone
 export const resetAllVotes = async (pin: string = '2569'): Promise<void> => {
   clearLocalVoterStatus();
   localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify([]));
+
   if (broadcastChannel) {
     broadcastChannel.postMessage({ type: 'RESET_VOTES' });
   }
 
+  // 1. Reset in Firestore: delete all vote documents & record reset timestamp
+  try {
+    const snap = await getDocs(collection(db, 'votes'));
+    const batch = writeBatch(db);
+    snap.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
+    });
+    await batch.commit();
+
+    // Update shared system reset version so all listening devices reset immediately
+    await setDoc(
+      doc(db, 'system', 'config'),
+      {
+        resetVersion: Date.now(),
+        lastResetAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    console.warn('Firestore reset failed:', err);
+  }
+
+  // 2. Reset on server API
   try {
     await fetch('/api/votes/reset', {
       method: 'POST',
@@ -291,13 +362,35 @@ export const resetAllVotes = async (pin: string = '2569'): Promise<void> => {
   }
 };
 
-// Restore demo votes on centralized server
+// Restore demo votes on centralized Firestore & server
 export const restoreDemoVotes = async (pin: string = '2569'): Promise<VoteRecord[]> => {
   localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(SEED_VOTES));
+
   if (broadcastChannel) {
     broadcastChannel.postMessage({ type: 'RESTORE_DEMO' });
   }
 
+  // 1. Write demo votes to Firestore
+  try {
+    const batch = writeBatch(db);
+    SEED_VOTES.forEach((v) => {
+      batch.set(doc(db, 'votes', v.id), v);
+    });
+    await batch.commit();
+
+    await setDoc(
+      doc(db, 'system', 'config'),
+      {
+        resetVersion: Date.now(),
+        lastRestoreAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    console.warn('Firestore restore demo failed:', err);
+  }
+
+  // 2. Call server restore API
   try {
     await fetch('/api/votes/restore-demo', {
       method: 'POST',
@@ -311,17 +404,21 @@ export const restoreDemoVotes = async (pin: string = '2569'): Promise<VoteRecord
   return SEED_VOTES;
 };
 
-// Real-time synchronization across all devices and tabs via SSE + BroadcastChannel
+// Real-time synchronization across all devices and tabs via Firestore onSnapshot + SSE
 export const onVotesUpdated = (
   callback: (votes: VoteRecord[]) => void,
   onReset?: () => void
 ): (() => void) => {
+  let unsubFirestoreVotes: (() => void) | null = null;
+  let unsubFirestoreConfig: (() => void) | null = null;
   let eventSource: EventSource | null = null;
   let pollInterval: any = null;
+  let initialLoaded = false;
 
   // 1. Initial remote fetch & sync check
   fetchRemoteVotes().then((v) => {
     callback(v);
+    initialLoaded = true;
     if (v.length === 0 && hasUserVotedLocally()) {
       checkRemoteVoterStatus().then((status) => {
         if (!status.hasVoted) {
@@ -332,7 +429,54 @@ export const onVotesUpdated = (
     }
   });
 
-  // 2. Setup Server-Sent Events (SSE) for instant cross-device live updates
+  // 2. REAL-TIME FIRESTORE LISTENER: Instantly triggers when ANY user on ANY device/link votes
+  try {
+    const q = query(collection(db, 'votes'), orderBy('timestamp', 'desc'));
+    unsubFirestoreVotes = onSnapshot(
+      q,
+      (snapshot) => {
+        const votesList: VoteRecord[] = [];
+        snapshot.forEach((docSnap) => {
+          votesList.push(docSnap.data() as VoteRecord);
+        });
+        localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(votesList));
+        callback(votesList);
+
+        // If votes are emptied (e.g. by admin reset), unlock local voting
+        if (votesList.length === 0 && hasUserVotedLocally()) {
+          clearLocalVoterStatus();
+          if (onReset) onReset();
+        }
+      },
+      (err) => {
+        console.warn('Firestore votes onSnapshot warning:', err);
+      }
+    );
+
+    // Listen to System Config (for instant reset broadcast across all phones)
+    unsubFirestoreConfig = onSnapshot(
+      doc(db, 'system', 'config'),
+      (docSnap) => {
+        const data = docSnap.data();
+        if (data?.resetVersion) {
+          // If a reset happened, re-check voter status
+          checkRemoteVoterStatus().then((status) => {
+            if (!status.hasVoted && hasUserVotedLocally()) {
+              clearLocalVoterStatus();
+              if (onReset) onReset();
+            }
+          });
+        }
+      },
+      (err) => {
+        console.warn('Firestore config onSnapshot warning:', err);
+      }
+    );
+  } catch (err) {
+    console.warn('Failed to attach Firestore real-time listener:', err);
+  }
+
+  // 3. Setup Server-Sent Events (SSE) as secondary live update channel
   try {
     if (typeof window !== 'undefined' && 'EventSource' in window) {
       eventSource = new EventSource('/api/votes/stream');
@@ -340,17 +484,10 @@ export const onVotesUpdated = (
       eventSource.addEventListener('init', (e: MessageEvent) => {
         try {
           const parsed = JSON.parse(e.data);
-          const remoteVotes = Array.isArray(parsed) ? parsed : (parsed?.votes || []);
-          localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(remoteVotes));
-          callback(remoteVotes);
-
-          if (remoteVotes.length === 0 && hasUserVotedLocally()) {
-            checkRemoteVoterStatus().then((status) => {
-              if (!status.hasVoted) {
-                clearLocalVoterStatus();
-                if (onReset) onReset();
-              }
-            });
+          const remoteVotes = Array.isArray(parsed) ? parsed : parsed?.votes || [];
+          if (!initialLoaded && remoteVotes.length > 0) {
+            localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(remoteVotes));
+            callback(remoteVotes);
           }
         } catch {}
       });
@@ -383,51 +520,25 @@ export const onVotesUpdated = (
           }
         } catch {}
       });
-
-      eventSource.onerror = () => {
-        // Fallback polling if SSE disconnects temporarily
-        if (!pollInterval) {
-          pollInterval = setInterval(async () => {
-            const v = await fetchRemoteVotes();
-            callback(v);
-            if (v.length === 0 && hasUserVotedLocally()) {
-              const status = await checkRemoteVoterStatus();
-              if (!status.hasVoted) {
-                clearLocalVoterStatus();
-                if (onReset) onReset();
-              }
-            }
-          }, 4000);
-        }
-      };
-
-      eventSource.onopen = () => {
-        if (pollInterval) {
-          clearInterval(pollInterval);
-          pollInterval = null;
-        }
-      };
     }
   } catch (err) {
     console.warn('SSE not supported or failed to connect:', err);
   }
 
-  // 3. Fallback polling interval (runs every 6s to guarantee consistency)
-  if (!pollInterval) {
-    pollInterval = setInterval(async () => {
-      const v = await fetchRemoteVotes();
-      callback(v);
-      if (v.length === 0 && hasUserVotedLocally()) {
-        const status = await checkRemoteVoterStatus();
-        if (!status.hasVoted) {
-          clearLocalVoterStatus();
-          if (onReset) onReset();
-        }
+  // 4. Polling fallback (runs every 5s to guarantee absolute data consistency)
+  pollInterval = setInterval(async () => {
+    const v = await fetchRemoteVotes();
+    callback(v);
+    if (v.length === 0 && hasUserVotedLocally()) {
+      const status = await checkRemoteVoterStatus();
+      if (!status.hasVoted) {
+        clearLocalVoterStatus();
+        if (onReset) onReset();
       }
-    }, 6000);
-  }
+    }
+  }, 5000);
 
-  // 4. Local browser storage & multi-tab listeners
+  // 5. Local browser storage & multi-tab listeners
   const handleStorage = (e: StorageEvent) => {
     if (e.key === STORAGE_VOTES_KEY) {
       callback(getStoredVotes());
@@ -454,16 +565,12 @@ export const onVotesUpdated = (
   }
 
   return () => {
-    if (eventSource) {
-      eventSource.close();
-    }
-    if (pollInterval) {
-      clearInterval(pollInterval);
-    }
+    if (unsubFirestoreVotes) unsubFirestoreVotes();
+    if (unsubFirestoreConfig) unsubFirestoreConfig();
+    if (eventSource) eventSource.close();
+    if (pollInterval) clearInterval(pollInterval);
     window.removeEventListener('storage', handleStorage);
-    if (broadcastChannel) {
-      broadcastChannel.removeEventListener('message', handleBroadcast);
-    }
+    if (broadcastChannel) broadcastChannel.removeEventListener('message', handleBroadcast);
   };
 };
 

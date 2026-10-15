@@ -1,4 +1,6 @@
 import { Candidate, VoteRecord } from '../types/voting';
+import { db } from './firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export interface GoogleSheetMetadata {
   spreadsheetId: string;
@@ -51,6 +53,17 @@ export const saveSpreadsheetInfo = (info: GoogleSheetMetadata | null, persistSer
   }
 
   if (persistServer) {
+    // 1. Sync to Firestore system config
+    setDoc(
+      doc(db, 'system', 'config'),
+      {
+        sheetInfo: info,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    ).catch((err) => console.warn('Firestore sheet config sync warning:', err));
+
+    // 2. Sync to Server API
     fetch('/api/sheet-config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -60,9 +73,22 @@ export const saveSpreadsheetInfo = (info: GoogleSheetMetadata | null, persistSer
 };
 
 /**
- * Loads sheet configuration from server, falling back to localStorage
+ * Loads sheet configuration from Firestore or server, falling back to localStorage
  */
 export async function fetchRemoteSheetConfig(): Promise<GoogleSheetMetadata | null> {
+  // 1. Check Firestore first
+  try {
+    const snap = await getDoc(doc(db, 'system', 'config'));
+    const data = snap.data();
+    if (data && data.sheetInfo !== undefined) {
+      saveSpreadsheetInfo(data.sheetInfo, false);
+      return data.sheetInfo;
+    }
+  } catch (err) {
+    console.warn('Firestore remote sheet config fetch fallback:', err);
+  }
+
+  // 2. Fallback to Server API
   try {
     const res = await fetch('/api/sheet-config');
     if (res.ok) {
@@ -75,6 +101,7 @@ export async function fetchRemoteSheetConfig(): Promise<GoogleSheetMetadata | nu
   } catch (err) {
     console.error('Failed to fetch remote sheet config:', err);
   }
+
   return getSavedSpreadsheetInfo();
 }
 

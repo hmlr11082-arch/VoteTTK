@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Share2, Copy, Check, QrCode, X, ExternalLink, Download, Sparkles, MessageCircle } from 'lucide-react';
+import { Share2, Copy, Check, QrCode, X, ExternalLink, Download, Sparkles, MessageCircle, Database } from 'lucide-react';
 import hospitalLogo from '../assets/images/thakhantho_hospital_logo_1791965444472.jpg';
 
 interface ShareModalProps {
@@ -13,13 +13,11 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, onShowT
 
   if (!isOpen) return null;
 
-  // Use the canonical shared URL for Tha Khan Tho Hospital voting
+  // Use the active application URL dynamically so shared links hit the exact same application
   const shareUrl =
     typeof window !== 'undefined'
-      ? (window.location.origin.includes('localhost') || window.location.origin.includes('ais-dev')
-          ? 'https://ais-pre-o4nvdzqoghmk2ruhmkuztz-44435437400.asia-southeast1.run.app'
-          : window.location.href.split('#')[0])
-      : 'https://ais-pre-o4nvdzqoghmk2ruhmkuztz-44435437400.asia-southeast1.run.app';
+      ? `${window.location.origin}${window.location.pathname}`.replace(/\/+$/, '')
+      : 'https://ais-dev-o4nvdzqoghmk2ruhmkuztz-44435437400.asia-southeast1.run.app';
 
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(shareUrl)}`;
 
@@ -67,7 +65,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, onShowT
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          className="absolute right-4 top-4 p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
@@ -83,6 +81,17 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, onShowT
             </h3>
             <p className="text-xs text-emerald-700 font-medium">
               เปิดให้ทุกคนเข้าใช้งานได้ทันที • ไม่ต้อง Login ไม่ต้องใช้อีเมล
+            </p>
+          </div>
+        </div>
+
+        {/* Centralized Cloud Database Sync Badge */}
+        <div className="mb-4 bg-emerald-50 border border-emerald-200 rounded-2xl p-3 flex items-start gap-2.5">
+          <Database className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+          <div className="text-xs text-emerald-900 leading-relaxed">
+            <span className="font-bold">ระบบรวบรวมคะแนนส่วนกลางแบบเรียลไทม์ (Cloud Synchronized):</span>
+            <p className="text-slate-600 mt-0.5">
+              เมื่อมีการแชร์ลิงก์นี้ออกไป ไม่ว่าจะเปิดจากมือถือ, คอมพิวเตอร์ หรือสแกน QR Code คะแนนที่ทุกคนลงจะถูกรวบรวมเข้าสู่ฐานข้อมูลเดียวกันทันที แสดงผลรวมตรงกันทุกเครื่อง
             </p>
           </div>
         </div>
@@ -118,7 +127,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, onShowT
             />
             <button
               onClick={handleCopyLink}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 copied
                   ? 'bg-emerald-600 text-white shadow-sm'
                   : 'bg-white text-emerald-800 border border-emerald-200 hover:bg-emerald-50'
@@ -143,7 +152,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, onShowT
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-4">
           <button
             onClick={handleCopyMessage}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold hover:bg-emerald-100 transition-colors"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold hover:bg-emerald-100 transition-colors cursor-pointer"
           >
             <MessageCircle className="w-4 h-4 text-emerald-600" />
             <span>คัดลอกข้อความสำหรับ LINE</span>
@@ -151,7 +160,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, onShowT
 
           <button
             onClick={handleNativeShare}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-md shadow-emerald-600/20 hover:bg-emerald-700 transition-colors"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-md shadow-emerald-600/20 hover:bg-emerald-700 transition-colors cursor-pointer"
           >
             <Share2 className="w-4 h-4" />
             <span>กดส่งแชร์ไปยังแอปอื่น</span>
@@ -159,8 +168,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, onShowT
         </div>
 
         <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-          <span>* ไม่มีการขอข้อมูลส่วนตัวหรือการล็อกอิน</span>
-          <button onClick={onClose} className="font-semibold text-slate-600 hover:underline">
+          <span>* ไม่มีการขอข้อมูลส่วนตัวหรือการล็อกอินสำหรับผู้ร่วมโหวต</span>
+          <button onClick={onClose} className="font-semibold text-slate-600 hover:underline cursor-pointer">
             ปิดหน้าต่าง
           </button>
         </div>

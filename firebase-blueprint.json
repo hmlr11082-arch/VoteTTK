@@ -1,0 +1,73 @@
+{
+  "entities": {
+    "Vote": {
+      "title": "Vote",
+      "description": "A vote record cast by a voter for Thai Khan Tho Hospital helper candidates",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique vote record ID"
+        },
+        "voterDeviceId": {
+          "type": "string",
+          "description": "Unique device identifier"
+        },
+        "voterName": {
+          "type": "string",
+          "description": "Name of the voter"
+        },
+        "voterRole": {
+          "type": "string",
+          "description": "Role of the voter"
+        },
+        "voterDepartment": {
+          "type": "string",
+          "description": "Department of the voter"
+        },
+        "selectedCandidateIds": {
+          "type": "array",
+          "description": "Array of 1 to 2 candidate IDs voted for"
+        },
+        "note": {
+          "type": "string",
+          "description": "Reason or encouragement note"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "ISO timestamp of the vote"
+        }
+      },
+      "required": ["id", "voterDeviceId", "voterName", "voterRole", "voterDepartment", "selectedCandidateIds", "timestamp"]
+    },
+    "SystemConfig": {
+      "title": "SystemConfig",
+      "description": "System state including reset version and connected Google Sheet metadata",
+      "type": "object",
+      "properties": {
+        "resetVersion": {
+          "type": "number",
+          "description": "Timestamp of the last reset"
+        },
+        "sheetInfo": {
+          "type": "object",
+          "description": "Google Sheet connection metadata"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last update"
+        }
+      }
+    }
+  },
+  "firestore": {
+    "/votes/{voteId}": {
+      "schema": "#/entities/Vote",
+      "description": "Real-time centralized collection of all votes across all devices and shared links"
+    },
+    "/system/{configId}": {
+      "schema": "#/entities/SystemConfig",
+      "description": "Shared system configuration and reset state"
+    }
+  }
+}
