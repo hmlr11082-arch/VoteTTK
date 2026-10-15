@@ -1,0 +1,6 @@
+{
+  "name": "โหวตผู้ช่วยเหลือคนไข้ดีเด่น รพ.ท่าคันโท",
+  "description": "ระบบโหวตผู้ช่วยเหลือคนไข้ดีเด่น โรงพยาบาลท่าคันโท พร้อมแดชบอร์ดสรุปผลคะแนนแบบเรียลไทม์ รายงานสรุป A4 PDF และเชื่อมต่อ Google Sheets",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
