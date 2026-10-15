@@ -15,6 +15,7 @@ app.use(express.json());
 // Persistent storage location
 const DATA_DIR = path.resolve(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'votes.json');
+const SHEET_CONFIG_FILE = path.join(DATA_DIR, 'sheet_config.json');
 
 if (!fs.existsSync(DATA_DIR)) {
   try {
@@ -27,6 +28,7 @@ if (!fs.existsSync(DATA_DIR)) {
 // In-memory cache + file sync
 let votes: any[] = [];
 let resetVersion: number = Date.now();
+let sheetConfig: any = null;
 
 if (fs.existsSync(DATA_FILE)) {
   try {
@@ -44,11 +46,29 @@ if (fs.existsSync(DATA_FILE)) {
   }
 }
 
+if (fs.existsSync(SHEET_CONFIG_FILE)) {
+  try {
+    const raw = fs.readFileSync(SHEET_CONFIG_FILE, 'utf-8');
+    sheetConfig = JSON.parse(raw);
+  } catch (err) {
+    console.error('Failed to parse sheet_config.json:', err);
+    sheetConfig = null;
+  }
+}
+
 function persistVotes() {
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify({ votes, resetVersion }, null, 2), 'utf-8');
   } catch (err) {
     console.error('Failed to write votes to file:', err);
+  }
+}
+
+function persistSheetConfig() {
+  try {
+    fs.writeFileSync(SHEET_CONFIG_FILE, JSON.stringify(sheetConfig, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Failed to write sheet config to file:', err);
   }
 }
 
@@ -71,6 +91,19 @@ app.get('/api/votes', (req, res) => {
   res.json({ success: true, votes, count: votes.length, resetVersion });
 });
 
+// Persistent Sheet Config endpoints
+app.get('/api/sheet-config', (req, res) => {
+  res.json({ success: true, sheetInfo: sheetConfig });
+});
+
+app.post('/api/sheet-config', (req, res) => {
+  const { sheetInfo } = req.body;
+  sheetConfig = sheetInfo || null;
+  persistSheetConfig();
+  broadcast('sheet_config', { sheetInfo: sheetConfig });
+  res.json({ success: true, sheetInfo: sheetConfig });
+});
+
 // Real-time SSE stream for all connected devices
 app.get('/api/votes/stream', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
@@ -79,7 +112,7 @@ app.get('/api/votes/stream', (req, res) => {
   res.flushHeaders?.();
 
   // Send current state immediately on connect
-  res.write(`event: init\ndata: ${JSON.stringify({ votes, resetVersion })}\n\n`);
+  res.write(`event: init\ndata: ${JSON.stringify({ votes, resetVersion, sheetInfo: sheetConfig })}\n\n`);
 
   sseClients.add(res);
 
@@ -164,12 +197,13 @@ app.post('/api/votes/reset', (req, res) => {
   votes = [];
   resetVersion = Date.now();
   persistVotes();
-  broadcast('reset', { allVotes: [], resetVersion });
+  broadcast('reset', { allVotes: [], resetVersion, sheetInfo: sheetConfig });
 
   res.json({
     success: true,
     message: 'รีเซ็ตคะแนนโหวตทั้งหมดเรียบร้อยแล้ว ทุกคนสามารถโหวตใหม่ได้ทันที',
     resetVersion,
+    sheetInfo: sheetConfig,
   });
 });
 

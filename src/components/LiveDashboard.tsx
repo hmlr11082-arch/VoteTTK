@@ -24,6 +24,7 @@ import {
   Medal,
   FileSpreadsheet,
   RotateCw,
+  Sheet,
 } from 'lucide-react';
 
 interface LiveDashboardProps {
@@ -36,6 +37,8 @@ interface LiveDashboardProps {
   onGoToReport: () => void;
   onRefreshVotes?: () => void;
   isRefreshing?: boolean;
+  onOpenSheetVerifyModal?: () => void;
+  sheetConnected?: boolean;
 }
 
 export const LiveDashboard: React.FC<LiveDashboardProps> = ({
@@ -48,6 +51,8 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
   onGoToReport,
   onRefreshVotes,
   isRefreshing = false,
+  onOpenSheetVerifyModal,
+  sheetConnected = false,
 }) => {
   const [deptFilter, setDeptFilter] = useState<Department | 'ALL'>('ALL');
   const [sortBy, setSortBy] = useState<'rank' | 'number'>('rank');
@@ -153,6 +158,17 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
             <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
             <span>ส่งออก CSV</span>
           </button>
+          {isAdmin && onOpenSheetVerifyModal && (
+            <button
+              onClick={onOpenSheetVerifyModal}
+              title="ตรวจสอบข้อมูลใน Google Sheet จริงว่าคะแนนถูกบันทึกจริง"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-teal-50 text-teal-800 hover:bg-teal-100 border border-teal-200 transition-all shadow-2xs hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <Sheet className="w-3.5 h-3.5 text-teal-600" />
+              <span>ตรวจสอบ Sheet</span>
+              {sheetConnected && <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>}
+            </button>
+          )}
           {isAdmin && (
             <button
               onClick={() => setShowConfirmReset(true)}
@@ -604,7 +620,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
               ยืนยันการรีเซ็ตคะแนนโหวตทั้งหมด?
             </h3>
             <p className="text-xs text-slate-500 mb-5 leading-relaxed">
-              คะแนนโหวตปัจจุบันทั้งหมด {votes.length} รายการ จะถูกล้างเป็นศูนย์ คืนค่าเริ่มต้นทั้งหมด และปลดล็อกให้ทุกคนที่ได้รับลิงก์สามารถลงคะแนนโหวตใหม่ได้ทันที
+              คะแนนโหวตปัจจุบันทั้งหมด {votes.length} รายการ จะถูกล้างเป็นศูนย์ คืนค่าเริ่มต้นทั้งหมด ล้างข้อมูลใน Google Sheet ที่เชื่อมต่อไว้ และปลดล็อกให้ทุกคนที่ได้รับลิงก์สามารถลงคะแนนโหวตใหม่ได้ทันที
             </p>
             <div className="flex gap-2">
               <button

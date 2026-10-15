@@ -28,12 +28,17 @@ import {
   getSavedSpreadsheetInfo,
   appendVoteToSheet,
   GoogleSheetMetadata,
+  fetchRemoteSheetConfig,
+  clearVotesInSheet,
+  syncAllVotesToSheet,
+  saveSpreadsheetInfo,
 } from './services/googleSheets';
 import { Navbar } from './components/Navbar';
 import { VotingView } from './components/VotingView';
 import { LiveDashboard } from './components/LiveDashboard';
 import { A4ReportView } from './components/A4ReportView';
 import { GoogleSheetsView } from './components/GoogleSheetsView';
+import { SheetVerifyModal } from './components/SheetVerifyModal';
 import { ShareModal } from './components/ShareModal';
 import {
   CheckCircle2,
@@ -55,6 +60,7 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isSheetVerifyModalOpen, setIsSheetVerifyModalOpen] = useState(false);
 
   // Voter 1-time enforcement state
   const [hasVoted, setHasVoted] = useState<boolean>(() => hasUserVotedLocally());
@@ -86,11 +92,17 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Check remote voter status on load
+  // Check remote voter status and load persistent Google Sheet config on load
   useEffect(() => {
     checkRemoteVoterStatus().then((status) => {
       setHasVoted(status.hasVoted);
       setUserReceipt(status.vote || null);
+    });
+
+    fetchRemoteSheetConfig().then((info) => {
+      if (info) {
+        setSheetInfo(info);
+      }
     });
   }, []);
 
@@ -205,7 +217,21 @@ export default function App() {
     setVotes([]);
     setHasVoted(false);
     setUserReceipt(null);
-    showToast('รีเซ็ตคะแนนโหวตทั้งหมดเรียบร้อยแล้ว ทุกคนที่ได้รับลิงก์สามารถโหวตใหม่ได้ทันที');
+
+    // If Google Sheet is connected, also clear all vote rows and reset tallies in the sheet
+    if (sheetInfo && accessToken) {
+      try {
+        await clearVotesInSheet(accessToken, sheetInfo.spreadsheetId, INITIAL_CANDIDATES);
+        showToast('รีเซ็ตคะแนนโหวตทั้งหมดและล้างข้อมูลใน Google Sheet เรียบร้อยแล้ว (ทุกคนเริ่มโหวตใหม่ได้)');
+      } catch (sheetErr: any) {
+        console.error('Failed to clear sheet data on reset:', sheetErr);
+        showToast('รีเซ็ตคะแนนในระบบแล้ว แต่ล้างข้อมูลใน Google Sheet ไม่สำเร็จ: ' + (sheetErr.message || ''));
+      }
+    } else if (sheetInfo && !accessToken) {
+      showToast('รีเซ็ตคะแนนในระบบแล้ว ทุกคนโหวตใหม่ได้ (หากต้องการให้ล้างข้อมูลใน Google Sheet ด้วย กรุณาเข้าสู่ระบบ Google ในส่วนที่ ๔)');
+    } else {
+      showToast('รีเซ็ตคะแนนโหวตทั้งหมดเรียบร้อยแล้ว ทุกคนที่ได้รับลิงก์สามารถโหวตใหม่ได้ทันที');
+    }
   };
 
   const handleRestoreDemo = async () => {
@@ -312,6 +338,8 @@ export default function App() {
             onGoToReport={() => scrollTo('section-report')}
             onRefreshVotes={handleRefreshVotes}
             isRefreshing={isRefreshing}
+            onOpenSheetVerifyModal={() => setIsSheetVerifyModalOpen(true)}
+            sheetConnected={Boolean(sheetInfo)}
           />
         </section>
 
@@ -326,30 +354,33 @@ export default function App() {
           <A4ReportView stats={stats} candidates={INITIAL_CANDIDATES} />
         </section>
 
-        {/* Section 4: Google Sheets Integration */}
-        <section id="section-sheets" className="scroll-mt-24 border-t border-emerald-100/70 pt-8 pb-12">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mb-4">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-              <span className="text-xs font-bold text-emerald-800 uppercase tracking-widest">ส่วนที่ ๔</span>
+        {/* Section 4: Google Sheets Integration (Admin Only) */}
+        {isAdmin && (
+          <section id="section-sheets" className="scroll-mt-24 border-t border-emerald-100/70 pt-8 pb-12">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mb-4">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                <span className="text-xs font-bold text-emerald-800 uppercase tracking-widest">ส่วนที่ ๔ (เฉพาะผู้ดูแลระบบ)</span>
+              </div>
             </div>
-          </div>
-          <GoogleSheetsView
-            currentUser={currentUser}
-            accessToken={accessToken}
-            sheetInfo={sheetInfo}
-            setSheetInfo={setSheetInfo}
-            onLogin={handleLogin}
-            onLogout={handleAdminLogout}
-            votes={votes}
-            candidates={INITIAL_CANDIDATES}
-            isAdmin={isAdmin}
-            onOpenAdminModal={() => {
-              setAdminPinError('');
-              setIsAdminModalOpen(true);
-            }}
-          />
-        </section>
+            <GoogleSheetsView
+              currentUser={currentUser}
+              accessToken={accessToken}
+              sheetInfo={sheetInfo}
+              setSheetInfo={setSheetInfo}
+              onLogin={handleLogin}
+              onLogout={handleAdminLogout}
+              votes={votes}
+              candidates={INITIAL_CANDIDATES}
+              isAdmin={isAdmin}
+              onOpenAdminModal={() => {
+                setAdminPinError('');
+                setIsAdminModalOpen(true);
+              }}
+              onOpenVerifyModal={() => setIsSheetVerifyModalOpen(true)}
+            />
+          </section>
+        )}
       </main>
 
       {/* Admin Unlock Modal */}
@@ -438,6 +469,34 @@ export default function App() {
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
         onShowToast={showToast}
+      />
+
+      {/* Google Sheet Verification Modal */}
+      <SheetVerifyModal
+        isOpen={isSheetVerifyModalOpen}
+        onClose={() => setIsSheetVerifyModalOpen(false)}
+        sheetInfo={sheetInfo}
+        accessToken={accessToken}
+        systemVotes={votes}
+        onLogin={handleLogin}
+        onSyncNow={async () => {
+          if (accessToken && sheetInfo) {
+            await syncAllVotesToSheet(accessToken, sheetInfo.spreadsheetId, votes, INITIAL_CANDIDATES);
+            const updated = { ...sheetInfo, lastSyncedAt: new Date().toISOString() };
+            setSheetInfo(updated);
+            saveSpreadsheetInfo(updated, true);
+            showToast('ซิงค์คะแนนทั้งหมดไปยัง Google Sheet เรียบร้อยแล้ว');
+          }
+        }}
+        onClearSheetNow={async () => {
+          if (accessToken && sheetInfo) {
+            await clearVotesInSheet(accessToken, sheetInfo.spreadsheetId, INITIAL_CANDIDATES);
+            const updated = { ...sheetInfo, lastSyncedAt: new Date().toISOString() };
+            setSheetInfo(updated);
+            saveSpreadsheetInfo(updated, true);
+            showToast('ล้างข้อมูลคะแนนใน Google Sheet เรียบร้อยแล้ว');
+          }
+        }}
       />
 
       {/* Back to Top Floating Button */}

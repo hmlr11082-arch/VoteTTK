@@ -3,7 +3,9 @@ import { User } from 'firebase/auth';
 import {
   GoogleSheetMetadata,
   createVotingSpreadsheet,
+  connectExistingSpreadsheet,
   syncAllVotesToSheet,
+  clearVotesInSheet,
   saveSpreadsheetInfo,
 } from '../services/googleSheets';
 import { Candidate, VoteRecord } from '../types/voting';
@@ -15,11 +17,12 @@ import {
   CheckCircle2,
   AlertTriangle,
   FileSpreadsheet,
-  Calendar,
-  Layers,
-  ArrowRight,
   ShieldCheck,
+  Search,
+  Trash2,
+  Link as LinkIcon,
   Check,
+  Sparkles,
 } from 'lucide-react';
 
 interface GoogleSheetsViewProps {
@@ -33,6 +36,7 @@ interface GoogleSheetsViewProps {
   candidates: Candidate[];
   isAdmin?: boolean;
   onOpenAdminModal?: () => void;
+  onOpenVerifyModal?: () => void;
 }
 
 export const GoogleSheetsView: React.FC<GoogleSheetsViewProps> = ({
@@ -46,17 +50,24 @@ export const GoogleSheetsView: React.FC<GoogleSheetsViewProps> = ({
   candidates,
   isAdmin = false,
   onOpenAdminModal,
+  onOpenVerifyModal,
 }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Connect existing sheet state
+  const [showConnectExisting, setShowConnectExisting] = useState(false);
+  const [existingUrlInput, setExistingUrlInput] = useState('');
+  const [isConnectingExisting, setIsConnectingExisting] = useState(false);
 
   // Confirmation dialogs (MANDATORY per Workspace integration skill)
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     title: string;
     description: string;
-    actionType: 'create' | 'sync' | 'disconnect';
+    actionType: 'create' | 'sync' | 'disconnect' | 'clearSheet';
   }>({
     isOpen: false,
     title: '',
@@ -82,13 +93,55 @@ export const GoogleSheetsView: React.FC<GoogleSheetsViewProps> = ({
     });
   };
 
+  const promptClearSheet = () => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'ล้างข้อมูลคะแนนใน Google Sheet นี้?',
+      description: 'ระบบจะล้างแถวบันทึกคะแนนทั้งหมดใน Google Sheet และรีเซ็ตคะแนนสะสมของผู้สมัครทุกคนเป็น 0 (โครงสร้างตารางและหัวข้อยังคงอยู่)',
+      actionType: 'clearSheet',
+    });
+  };
+
   const promptDisconnect = () => {
     setConfirmDialog({
       isOpen: true,
       title: 'ยกเลิกการเชื่อมต่อกับสเปรดชีตนี้?',
-      description: 'ระบบจะนำการเชื่อมต่อสเปรดชีตนี้ออกจากแอป แต่ไฟล์ใน Google Drive ของคุณจะยังคงอยู่และปลอดภัย',
+      description: 'ระบบจะนำการเชื่อมต่อสเปรดชีตนี้ออกจากระบบ แต่ไฟล์ใน Google Drive ของคุณจะยังคงอยู่และปลอดภัย',
       actionType: 'disconnect',
     });
+  };
+
+  const handleConnectExisting = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!existingUrlInput.trim()) return;
+
+    if (!accessToken) {
+      setStatusMessage({ type: 'error', text: 'กรุณาลงชื่อเข้าใช้ด้วย Google ก่อนเชื่อมต่อ' });
+      return;
+    }
+
+    setIsConnectingExisting(true);
+    setStatusMessage(null);
+    try {
+      const meta = await connectExistingSpreadsheet(accessToken, existingUrlInput.trim());
+      setSheetInfo(meta);
+      setShowConnectExisting(false);
+      setExistingUrlInput('');
+      setStatusMessage({
+        type: 'success',
+        text: `เชื่อมต่อกับ Google Sheet "${meta.title}" สำเร็จและบันทึกการเชื่อมต่อไว้แล้ว`,
+      });
+
+      // Sync current votes if any
+      if (votes.length > 0) {
+        await syncAllVotesToSheet(accessToken, meta.spreadsheetId, votes, candidates);
+      }
+    } catch (err: any) {
+      console.error('Failed to connect existing sheet:', err);
+      setStatusMessage({ type: 'error', text: err.message || 'เชื่อมต่อสเปรดชีตไม่สำเร็จ' });
+    } finally {
+      setIsConnectingExisting(false);
+    }
   };
 
   const handleExecuteConfirmedAction = async () => {
@@ -96,7 +149,7 @@ export const GoogleSheetsView: React.FC<GoogleSheetsViewProps> = ({
     setConfirmDialog({ ...confirmDialog, isOpen: false });
 
     if (action === 'disconnect') {
-      saveSpreadsheetInfo(null);
+      saveSpreadsheetInfo(null, true);
       setSheetInfo(null);
       setStatusMessage({ type: 'success', text: 'ยกเลิกการเชื่อมต่อสเปรดชีตสำเร็จ' });
       return;
@@ -115,7 +168,7 @@ export const GoogleSheetsView: React.FC<GoogleSheetsViewProps> = ({
         setSheetInfo(newSheet);
         setStatusMessage({
           type: 'success',
-          text: `สร้าง Google Sheet "${newSheet.title}" สำเร็จแล้ว!`,
+          text: `สร้าง Google Sheet "${newSheet.title}" สำเร็จและเชื่อมต่อไว้เรียบร้อยแล้ว!`,
         });
 
         // Automatically sync initial records if any
@@ -136,7 +189,7 @@ export const GoogleSheetsView: React.FC<GoogleSheetsViewProps> = ({
         await syncAllVotesToSheet(accessToken, sheetInfo.spreadsheetId, votes, candidates);
         const updated = { ...sheetInfo, lastSyncedAt: new Date().toISOString() };
         setSheetInfo(updated);
-        saveSpreadsheetInfo(updated);
+        saveSpreadsheetInfo(updated, true);
         setStatusMessage({
           type: 'success',
           text: `ซิงค์ข้อมูล ${votes.length} รายการไปยัง Google Sheets เรียบร้อยแล้ว`,
@@ -146,6 +199,25 @@ export const GoogleSheetsView: React.FC<GoogleSheetsViewProps> = ({
         setStatusMessage({ type: 'error', text: err.message || 'ซิงค์ข้อมูลไม่สำเร็จ' });
       } finally {
         setIsSyncing(false);
+      }
+    } else if (action === 'clearSheet') {
+      if (!sheetInfo) return;
+      setIsClearing(true);
+      setStatusMessage(null);
+      try {
+        await clearVotesInSheet(accessToken, sheetInfo.spreadsheetId, candidates);
+        const updated = { ...sheetInfo, lastSyncedAt: new Date().toISOString() };
+        setSheetInfo(updated);
+        saveSpreadsheetInfo(updated, true);
+        setStatusMessage({
+          type: 'success',
+          text: 'ล้างข้อมูลคะแนนใน Google Sheet และรีเซ็ตคะแนนสะสมเป็น 0 เรียบร้อยแล้ว',
+        });
+      } catch (err: any) {
+        console.error('Error clearing sheet:', err);
+        setStatusMessage({ type: 'error', text: err.message || 'ล้างข้อมูลใน Google Sheet ไม่สำเร็จ' });
+      } finally {
+        setIsClearing(false);
       }
     }
   };
@@ -157,13 +229,13 @@ export const GoogleSheetsView: React.FC<GoogleSheetsViewProps> = ({
         <div className="max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-emerald-100 text-xs font-semibold mb-3">
             <Sheet className="w-4 h-4 text-emerald-300" />
-            <span>Google Workspace Integration</span>
+            <span>Google Workspace Integration (เฉพาะผู้ดูแลระบบ)</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-2">
             เชื่อมต่อ Google Sheets บันทึกผลโหวตสด
           </h2>
           <p className="text-emerald-100/90 text-sm leading-relaxed">
-            บันทึกทุกคะแนนโหวตของผู้ช่วยเหลือคนไข้ รพ.ท่าคันโท ลงใน Google Sheets อัตโนมัติ เพื่อการจัดเก็บข้อมูลที่โปร่งใส ตรวจสอบได้ และนำไปใช้งานต่อได้อย่างง่ายดาย
+            เชื่อมต่อ Google Sheets ค้างไว้ตลอดเวลา เพื่อบันทึกทุกคะแนนโหวตของผู้ช่วยเหลือคนไข้ รพ.ท่าคันโท ลงใน Google Sheets อัตโนมัติ สามารถตรวจสอบข้อมูลจริงและล้างข้อมูลเมื่อรีเซ็ตได้
           </p>
         </div>
       </div>
@@ -187,7 +259,7 @@ export const GoogleSheetsView: React.FC<GoogleSheetsViewProps> = ({
           </div>
           <button
             onClick={() => setStatusMessage(null)}
-            className="text-xs font-bold underline px-2 py-1"
+            className="text-xs font-bold underline px-2 py-1 cursor-pointer"
           >
             ปิด
           </button>
@@ -201,17 +273,17 @@ export const GoogleSheetsView: React.FC<GoogleSheetsViewProps> = ({
             <Sheet className="w-7 h-7 text-emerald-600" />
           </div>
           <h3 className="text-lg font-bold text-slate-800">
-            ระบบเชื่อมต่อ Google Sheets สำหรับคณะกรรมการ
+            ระบบเชื่อมต่อ Google Sheets แสดงเฉพาะผู้ดูแลระบบ (Admin)
           </h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            ผู้ร่วมลงคะแนนทั่วไปสามารถโหวตและดูผลคะแนนสดได้ทันทีโดยไม่ต้องใช้อีเมลหรือลงชื่อเข้าใช้<br />
-            (ส่วนเชื่อมต่อ Google Sheets นี้มีไว้สำหรับคณะกรรมการผู้ดูแลระบบในการจัดเก็บฐานข้อมูล)
+            ผู้ร่วมลงคะแนนทั่วไปสามารถโหวตและดูคะแนนสดได้ทันทีโดยไม่ต้องเข้าสู่ระบบส่วนนี้<br />
+            (ส่วนที่ ๔ นี้แสดงเฉพาะคณะกรรมการหรือแอดมินเท่านั้น)
           </p>
           {onOpenAdminModal && (
             <div className="pt-2">
               <button
                 onClick={onOpenAdminModal}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs sm:text-sm shadow-md hover:bg-emerald-700 transition-all"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs sm:text-sm shadow-md hover:bg-emerald-700 transition-all cursor-pointer"
               >
                 <span>เข้าสู่โหมดผู้ดูแลระบบ (Admin Access)</span>
               </button>
@@ -230,11 +302,11 @@ export const GoogleSheetsView: React.FC<GoogleSheetsViewProps> = ({
             ระบบจะขออนุญาตเข้าถึง Google Sheets เพื่อสร้างและซิงค์ข้อมูลสเปรดชีตใน Google Drive ของท่าน
           </p>
 
-          {/* Official Google Sign-In Button as specified in skill */}
+          {/* Official Google Sign-In Button */}
           <div className="pt-2 flex justify-center">
             <button
               onClick={onLogin}
-              className="inline-flex items-center gap-3 px-5 py-3 rounded-2xl bg-white border border-slate-300 hover:bg-slate-50 shadow-xs transition-all font-semibold text-slate-700 text-sm active:scale-95"
+              className="inline-flex items-center gap-3 px-5 py-3 rounded-2xl bg-white border border-slate-300 hover:bg-slate-50 shadow-xs transition-all font-semibold text-slate-700 text-sm active:scale-95 cursor-pointer"
             >
               <svg className="w-5 h-5" viewBox="0 0 48 48">
                 <path
@@ -278,19 +350,21 @@ export const GoogleSheetsView: React.FC<GoogleSheetsViewProps> = ({
                 <div className="text-sm font-bold text-slate-800 flex items-center gap-2">
                   <span>{currentUser.displayName || 'ผู้ใช้งาน Google'}</span>
                   <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                    เข้าสู่ระบบแล้ว
+                    เชื่อมต่อ Google แล้ว
                   </span>
                 </div>
                 <div className="text-xs text-slate-500">{currentUser.email}</div>
               </div>
             </div>
 
-            <button
-              onClick={onLogout}
-              className="text-xs font-semibold text-slate-500 hover:text-rose-600 px-3 py-1.5 rounded-xl hover:bg-rose-50 transition-colors self-start sm:self-center"
-            >
-              ออกจากระบบ Google
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onLogout}
+                className="text-xs font-semibold text-slate-500 hover:text-rose-600 px-3 py-1.5 rounded-xl hover:bg-rose-50 transition-colors"
+              >
+                ออกจากระบบ Google
+              </button>
+            </div>
           </div>
 
           {/* Spreadsheet Connection State */}
@@ -304,9 +378,12 @@ export const GoogleSheetsView: React.FC<GoogleSheetsViewProps> = ({
                   <div>
                     <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
                       <span>{sheetInfo.title}</span>
-                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        เชื่อมต่อค้างไว้
+                      </span>
                     </h3>
-                    <p className="text-xs text-slate-500 font-mono mt-0.5">
+                    <p className="text-xs text-slate-500 font-mono mt-0.5 truncate max-w-md">
                       ID: {sheetInfo.spreadsheetId}
                     </p>
                     {sheetInfo.lastSyncedAt && (
@@ -317,32 +394,52 @@ export const GoogleSheetsView: React.FC<GoogleSheetsViewProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center flex-wrap gap-2.5">
+                <div className="flex items-center flex-wrap gap-2">
+                  {/* Verify Button (Requested by User) */}
+                  <button
+                    onClick={onOpenVerifyModal}
+                    title="ตรวจสอบข้อมูลใน Google Sheet จริงว่าคะแนนถูกบันทึกไว้จริง"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-teal-600 text-white shadow-md shadow-teal-600/20 hover:bg-teal-700 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                  >
+                    <Search className="w-3.5 h-3.5" />
+                    <span>ตรวจสอบ Sheet จริง</span>
+                  </button>
+
                   <a
                     href={sheetInfo.spreadsheetUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-colors"
                   >
-                    <span>เปิดดูใน Google Sheets</span>
+                    <span>เปิด Sheet</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
 
                   <button
                     onClick={promptSyncSheet}
                     disabled={isSyncing}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700 transition-colors disabled:opacity-50 cursor-pointer"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                    <span>{isSyncing ? 'กำลังซิงค์...' : 'ซิงค์ข้อมูลเดี๋ยวนี้'}</span>
+                    <span>{isSyncing ? 'กำลังซิงค์...' : 'ซิงค์ข้อมูล'}</span>
+                  </button>
+
+                  <button
+                    onClick={promptClearSheet}
+                    disabled={isClearing}
+                    title="ล้างข้อมูลคะแนนใน Sheet นี้เมื่อรีเซ็ต"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-700 hover:bg-rose-50 border border-rose-200 transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>{isClearing ? 'กำลังล้าง...' : 'ล้างข้อมูลใน Sheet'}</span>
                   </button>
 
                   <button
                     onClick={promptDisconnect}
-                    className="p-2 text-slate-400 hover:text-rose-600 rounded-xl hover:bg-rose-50"
+                    className="p-2 text-slate-400 hover:text-rose-600 rounded-xl hover:bg-rose-50 cursor-pointer"
                     title="ยกเลิกการเชื่อมต่อ"
                   >
-                    ยกเลิกการเชื่อมต่อ
+                    ยกเลิก
                   </button>
                 </div>
               </div>
@@ -350,7 +447,7 @@ export const GoogleSheetsView: React.FC<GoogleSheetsViewProps> = ({
               {/* Data Summary in Sheet */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                  <div className="text-xs text-slate-500">จำนวนบันทึกในระบบ</div>
+                  <div className="text-xs text-slate-500">จำนวนบันทึกในระบบปัจจุบัน</div>
                   <div className="text-xl font-bold text-slate-800 mt-1">{votes.length} รายการ</div>
                 </div>
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
@@ -361,31 +458,78 @@ export const GoogleSheetsView: React.FC<GoogleSheetsViewProps> = ({
                   <div className="text-xs text-slate-500">สถานะความพร้อม</div>
                   <div className="text-sm font-bold text-emerald-600 mt-1 flex items-center gap-1">
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>เชื่อมต่อสมบูรณ์</span>
+                    <span>เชื่อมต่อไว้ตลอดเวลา</span>
                   </div>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-3xl p-8 border border-emerald-100 shadow-2xs text-center max-w-lg mx-auto space-y-4">
+            <div className="bg-white rounded-3xl p-8 border border-emerald-100 shadow-2xs text-center max-w-lg mx-auto space-y-5">
               <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
                 <PlusCircle className="w-7 h-7" />
               </div>
-              <h3 className="text-lg font-bold text-slate-800">
-                ยังไม่ได้เชื่อมต่อกับ Google Sheet ใด
-              </h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                คลิกปุ่มด้านล่างเพื่อสร้าง Google Spreadsheet ไฟล์ใหม่ใน Google Drive ของคุณโดยอัตโนมัติ
-              </p>
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">
+                  ยังไม่ได้เชื่อมต่อกับ Google Sheet ใด
+                </h3>
+                <p className="text-xs text-slate-500 leading-relaxed mt-1">
+                  เลือกสร้าง Google Sheet ใหม่ใน Google Drive ของคุณ หรือเชื่อมต่อกับไฟล์ Sheet เดิมที่มีอยู่แล้ว
+                </p>
+              </div>
 
-              <button
-                onClick={promptCreateSheet}
-                disabled={isCreating}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-sm shadow-md shadow-emerald-600/30 hover:opacity-95 transition-all disabled:opacity-50"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>{isCreating ? 'กำลังสร้าง Sheet...' : 'สร้าง Google Sheet ใหม่ทันที'}</span>
-              </button>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  onClick={promptCreateSheet}
+                  disabled={isCreating}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-sm shadow-md shadow-emerald-600/30 hover:opacity-95 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>{isCreating ? 'กำลังสร้าง Sheet...' : 'สร้าง Google Sheet ใหม่ทันที'}</span>
+                </button>
+
+                <button
+                  onClick={() => setShowConnectExisting(!showConnectExisting)}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-slate-100 text-slate-700 hover:bg-slate-200 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
+                >
+                  <LinkIcon className="w-4 h-4 text-slate-500" />
+                  <span>เชื่อมต่อ Sheet ที่มีอยู่</span>
+                </button>
+              </div>
+
+              {/* Connect Existing Form */}
+              {showConnectExisting && (
+                <form
+                  onSubmit={handleConnectExisting}
+                  className="pt-4 border-t border-slate-100 space-y-3 text-left"
+                >
+                  <label className="block text-xs font-semibold text-slate-700">
+                    วางลิงก์ Google Sheet URL หรือ Spreadsheet ID ที่ต้องการเชื่อมต่อ:
+                  </label>
+                  <input
+                    type="text"
+                    value={existingUrlInput}
+                    onChange={(e) => setExistingUrlInput(e.target.value)}
+                    placeholder="https://docs.google.com/spreadsheets/d/1BxiMVs.../edit"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowConnectExisting(false)}
+                      className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isConnectingExisting || !existingUrlInput.trim()}
+                      className="px-4 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
+                    >
+                      {isConnectingExisting ? 'กำลังเชื่อมต่อ...' : 'บันทึกการเชื่อมต่อ'}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           )}
         </div>
@@ -409,13 +553,13 @@ export const GoogleSheetsView: React.FC<GoogleSheetsViewProps> = ({
             <div className="flex gap-3">
               <button
                 onClick={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
-                className="w-full py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+                className="w-full py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
               >
                 ยกเลิก
               </button>
               <button
                 onClick={handleExecuteConfirmedAction}
-                className="w-full py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 text-white shadow-md shadow-emerald-600/25 hover:bg-emerald-700 transition-colors"
+                className="w-full py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 text-white shadow-md shadow-emerald-600/25 hover:bg-emerald-700 transition-colors cursor-pointer"
               >
                 ยืนยันดำเนินการ
               </button>

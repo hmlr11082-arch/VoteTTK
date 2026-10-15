@@ -36,7 +36,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   useEffect(() => {
     const handleScroll = () => {
-      const sections = ['section-vote', 'section-dashboard', 'section-report', 'section-sheets'];
+      const sections = isAdmin
+        ? ['section-vote', 'section-dashboard', 'section-report', 'section-sheets']
+        : ['section-vote', 'section-dashboard', 'section-report'];
       const scrollY = window.scrollY + 140;
 
       for (const sectionId of sections) {
@@ -138,18 +140,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span>รายงาน A4 PDF</span>
             </button>
 
-            <button
-              onClick={() => scrollTo('section-sheets')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                activeSection === 'section-sheets'
-                  ? 'bg-white text-emerald-800 shadow-sm font-semibold'
-                  : 'text-slate-600 hover:text-emerald-700 hover:bg-white/50'
-              }`}
-            >
-              <Sheet className="w-4 h-4 text-emerald-600" />
-              <span>Google Sheets</span>
-              {sheetInfo && <span className="w-2 h-2 rounded-full bg-emerald-500"></span>}
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => scrollTo('section-sheets')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                  activeSection === 'section-sheets'
+                    ? 'bg-white text-emerald-800 shadow-sm font-semibold'
+                    : 'text-slate-600 hover:text-emerald-700 hover:bg-white/50'
+                }`}
+              >
+                <Sheet className="w-4 h-4 text-emerald-600" />
+                <span>Google Sheets</span>
+                {sheetInfo && <span className="w-2 h-2 rounded-full bg-emerald-500"></span>}
+              </button>
+            )}
           </nav>
 
           {/* Right Action / Role Status */}
@@ -242,17 +246,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             <FileText className="w-3.5 h-3.5" />
             <span>รายงาน A4</span>
           </button>
-          <button
-            onClick={() => scrollTo('section-sheets')}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium ${
-              activeSection === 'section-sheets'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'text-slate-600'
-            }`}
-          >
-            <Sheet className="w-3.5 h-3.5" />
-            <span>Sheets</span>
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => scrollTo('section-sheets')}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium ${
+                activeSection === 'section-sheets'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-600'
+              }`}
+            >
+              <Sheet className="w-3.5 h-3.5" />
+              <span>Sheets</span>
+            </button>
+          )}
         </div>
       </div>
     </header>
