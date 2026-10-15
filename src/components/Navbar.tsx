@@ -91,6 +91,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                     โหวตสด 2569
                   </span>
+                  <span className="hidden lg:inline-flex items-center gap-1 text-[10.5px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300" title="เชื่อมต่อ Cloud Firestore (ai-studio-6ac8a973-25ec-454a-9417-913e85215cc3)">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                    Cloud Firestore เชื่อมต่อแล้ว
+                  </span>
                 </h1>
               </div>
               <p className="text-xs sm:text-sm text-slate-500 font-medium">

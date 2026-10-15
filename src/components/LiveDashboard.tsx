@@ -112,14 +112,20 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
       {/* Dashboard Top Header & Live Pulse */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-3xl p-6 border border-emerald-100 shadow-2xs">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="flex h-3 w-3 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-            </span>
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-              Live Real-Time Dashboard
-            </span>
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200/80">
+              <span className="flex h-2.5 w-2.5 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
+                Live Real-Time
+              </span>
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-50 border border-sky-200 text-sky-800 text-[11px] font-semibold" title="เชื่อมต่อ Cloud Firestore (ai-studio-6ac8a973-25ec-454a-9417-913e85215cc3) รวมคะแนนจากทุกอุปกรณ์อัตโนมัติ">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span>
+              <span>Cloud Firestore เชื่อมต่อแล้ว</span>
+            </div>
           </div>
           <h2 className="text-2xl font-extrabold text-slate-800 tracking-tight">
             แดชบอร์ดสรุปคะแนนโหวตสด โรงพยาบาลท่าคันโท
