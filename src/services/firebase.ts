@@ -1,9 +1,35 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import {
+  initializeFirestore,
+  getFirestore,
+  memoryLocalCache,
+  setLogLevel,
+  doc,
+  getDocFromServer,
+} from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
+// Silence non-fatal internal Firestore SDK warnings (e.g. BloomFilter existence filter fallback)
+setLogLevel('error');
+
 export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId || '(default)');
+
+const dbId = (firebaseConfig as any).firestoreDatabaseId || '(default)';
+
+// Initialize Firestore with memoryLocalCache to avoid multi-tab BloomFilter cache mismatches
+export const db = (() => {
+  try {
+    return initializeFirestore(
+      app,
+      {
+        localCache: memoryLocalCache(),
+      },
+      dbId
+    );
+  } catch {
+    return getFirestore(app, dbId);
+  }
+})();
 
 // Validate connection to Firestore on initialization
 export async function validateFirestoreConnection(): Promise<boolean> {

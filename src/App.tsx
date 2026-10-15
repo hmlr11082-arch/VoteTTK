@@ -218,25 +218,31 @@ export default function App() {
       showToast('เฉพาะผู้ดูแลระบบเท่านั้นที่มีสิทธิ์รีเซ็ตคะแนน');
       return;
     }
-    await resetAllVotes('2569');
-    clearLocalVoterStatus();
-    setVotes([]);
-    setHasVoted(false);
-    setUserReceipt(null);
+    try {
+      showToast('กำลังรีเซ็ตคะแนนโหวตทั้งหมดในระบบ...');
+      await resetAllVotes('2569');
+      clearLocalVoterStatus();
+      setVotes([]);
+      setHasVoted(false);
+      setUserReceipt(null);
 
-    // If Google Sheet is connected, also clear all vote rows and reset tallies in the sheet
-    if (sheetInfo && accessToken) {
-      try {
-        await clearVotesInSheet(accessToken, sheetInfo.spreadsheetId, INITIAL_CANDIDATES);
-        showToast('รีเซ็ตคะแนนโหวตทั้งหมดและล้างข้อมูลใน Google Sheet เรียบร้อยแล้ว (ทุกคนเริ่มโหวตใหม่ได้)');
-      } catch (sheetErr: any) {
-        console.error('Failed to clear sheet data on reset:', sheetErr);
-        showToast('รีเซ็ตคะแนนในระบบแล้ว แต่ล้างข้อมูลใน Google Sheet ไม่สำเร็จ: ' + (sheetErr.message || ''));
+      // If Google Sheet is connected, also clear all vote rows and reset tallies in the sheet
+      if (sheetInfo && accessToken) {
+        try {
+          await clearVotesInSheet(accessToken, sheetInfo.spreadsheetId, INITIAL_CANDIDATES);
+          showToast('รีเซ็ตคะแนนโหวตทั้งหมดและล้างข้อมูลใน Google Sheet เรียบร้อยแล้ว (ทุกคนเริ่มโหวตใหม่ได้)');
+        } catch (sheetErr: any) {
+          console.error('Failed to clear sheet data on reset:', sheetErr);
+          showToast('รีเซ็ตคะแนนในระบบแล้ว แต่ล้างข้อมูลใน Google Sheet ไม่สำเร็จ: ' + (sheetErr.message || ''));
+        }
+      } else if (sheetInfo && !accessToken) {
+        showToast('รีเซ็ตคะแนนในระบบแล้ว ทุกคนโหวตใหม่ได้ (หากต้องการให้ล้างข้อมูลใน Google Sheet ด้วย กรุณาเข้าสู่ระบบ Google ในส่วนที่ ๔)');
+      } else {
+        showToast('รีเซ็ตคะแนนโหวตทั้งหมดเรียบร้อยแล้ว ทุกคนที่ได้รับลิงก์สามารถโหวตใหม่ได้ทันที');
       }
-    } else if (sheetInfo && !accessToken) {
-      showToast('รีเซ็ตคะแนนในระบบแล้ว ทุกคนโหวตใหม่ได้ (หากต้องการให้ล้างข้อมูลใน Google Sheet ด้วย กรุณาเข้าสู่ระบบ Google ในส่วนที่ ๔)');
-    } else {
-      showToast('รีเซ็ตคะแนนโหวตทั้งหมดเรียบร้อยแล้ว ทุกคนที่ได้รับลิงก์สามารถโหวตใหม่ได้ทันที');
+    } catch (err: any) {
+      console.error('Failed to reset votes:', err);
+      showToast('เกิดข้อผิดพลาดในการรีเซ็ตคะแนน: ' + (err.message || ''));
     }
   };
 

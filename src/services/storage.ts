@@ -256,47 +256,18 @@ export const cleanVoteForFirestore = (vote: VoteRecord): Record<string, any> => 
   return clean;
 };
 
-// Background helper to ensure all votes exist in Firestore
-export const syncMissingVotesToFirestore = async (votesToSync: VoteRecord[]): Promise<void> => {
-  try {
-    const snap = await getDocs(collection(db, 'votes'));
-    const existingIds = new Set<string>();
-    snap.forEach((d) => existingIds.add(d.id));
-
-    const missing = votesToSync.filter((v) => v && v.id && !existingIds.has(v.id));
-    if (missing.length > 0) {
-      const batch = writeBatch(db);
-      missing.forEach((v) => {
-        const clean = cleanVoteForFirestore(v);
-        batch.set(doc(db, 'votes', clean.id), clean);
-      });
-      await batch.commit();
-    }
-  } catch (err) {
-    console.warn('Background sync to Firestore skipped:', err);
-  }
+// Background helper - permanently disabled to avoid resurrecting deleted/reset votes
+export const syncMissingVotesToFirestore = async (_votesToSync: VoteRecord[]): Promise<void> => {
+  // Intentionally no-op: votes are saved individually in real-time via saveVote()
+  return;
 };
 
-// Fetch latest votes from centralized Firestore & Server API (merging both so no votes are ever lost)
+// Fetch latest votes from centralized Firestore & Server API
 export const fetchRemoteVotes = async (): Promise<VoteRecord[]> => {
+  let remoteFetchSucceeded = false;
   const votesMap = new Map<string, VoteRecord>();
 
-  // 1. Fetch from Server API
-  try {
-    const res = await fetch('/api/votes?_t=' + Date.now());
-    if (res.ok) {
-      const data = await res.json();
-      if (data && Array.isArray(data.votes)) {
-        data.votes.forEach((v: VoteRecord) => {
-          if (v && v.id) votesMap.set(v.id, v);
-        });
-      }
-    }
-  } catch (err) {
-    console.warn('Server API fetch warning:', err);
-  }
-
-  // 2. Fetch from Firestore (primary cloud store)
+  // 1. Fetch from Firestore (primary cloud store)
   try {
     const q = query(collection(db, 'votes'), orderBy('timestamp', 'desc'));
     const snap = await getDocs(q);
@@ -306,12 +277,32 @@ export const fetchRemoteVotes = async (): Promise<VoteRecord[]> => {
         votesMap.set(v.id, v);
       }
     });
+    remoteFetchSucceeded = true;
   } catch (err) {
     console.warn('Firestore fetch warning:', err);
   }
 
-  // 3. Fallback to local storage if both remote sources are empty but local has votes
-  if (votesMap.size === 0) {
+  // 2. Fetch from Server API
+  try {
+    const res = await fetch('/api/votes?_t=' + Date.now());
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.votes)) {
+        if (!remoteFetchSucceeded) {
+          // If Firestore query failed, use server votes
+          data.votes.forEach((v: VoteRecord) => {
+            if (v && v.id) votesMap.set(v.id, v);
+          });
+        }
+        remoteFetchSucceeded = true;
+      }
+    }
+  } catch (err) {
+    console.warn('Server API fetch warning:', err);
+  }
+
+  // 3. Fallback to local storage ONLY if remote servers could not be contacted (offline mode)
+  if (!remoteFetchSucceeded && votesMap.size === 0) {
     const local = getStoredVotes();
     local.forEach((v) => {
       if (v && v.id) votesMap.set(v.id, v);
@@ -322,12 +313,8 @@ export const fetchRemoteVotes = async (): Promise<VoteRecord[]> => {
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   );
 
+  // Sync cache with current verified remote state
   localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(allVotes));
-
-  // Sync any server votes that were not in Firestore
-  if (allVotes.length > 0) {
-    syncMissingVotesToFirestore(allVotes).catch(() => {});
-  }
 
   return allVotes;
 };
@@ -383,36 +370,16 @@ export const saveVote = async (vote: VoteRecord): Promise<VoteRecord[]> => {
 
 // Reset all votes on centralized Firestore & server & unlock voting for everyone
 export const resetAllVotes = async (pin: string = '2569'): Promise<void> => {
+  const resetTimestamp = Date.now();
   clearLocalVoterStatus();
+  localStorage.setItem('thakhantho_last_reset_version', String(resetTimestamp));
   localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify([]));
 
   if (broadcastChannel) {
-    broadcastChannel.postMessage({ type: 'RESET_VOTES' });
+    broadcastChannel.postMessage({ type: 'RESET_VOTES', resetVersion: resetTimestamp });
   }
 
-  // 1. Reset in Firestore: delete all vote documents & record reset timestamp
-  try {
-    const snap = await getDocs(collection(db, 'votes'));
-    const batch = writeBatch(db);
-    snap.forEach((docSnap) => {
-      batch.delete(docSnap.ref);
-    });
-    await batch.commit();
-
-    // Update shared system reset version so all listening devices reset immediately
-    await setDoc(
-      doc(db, 'system', 'config'),
-      {
-        resetVersion: Date.now(),
-        lastResetAt: new Date().toISOString(),
-      },
-      { merge: true }
-    );
-  } catch (err) {
-    console.warn('Firestore reset failed:', err);
-  }
-
-  // 2. Reset on server API
+  // 1. Reset on server API first so server memory & JSON file are cleared immediately
   try {
     await fetch('/api/votes/reset', {
       method: 'POST',
@@ -422,11 +389,45 @@ export const resetAllVotes = async (pin: string = '2569'): Promise<void> => {
   } catch (err) {
     console.warn('Failed to call reset API:', err);
   }
+
+  // 2. Reset in Firestore: delete all vote documents & record reset timestamp
+  try {
+    const snap = await getDocs(collection(db, 'votes'));
+    const docs = snap.docs;
+    for (let i = 0; i < docs.length; i += 400) {
+      const chunk = docs.slice(i, i + 400);
+      const batch = writeBatch(db);
+      chunk.forEach((docSnap) => {
+        batch.delete(docSnap.ref);
+      });
+      await batch.commit();
+    }
+
+    // Update shared system reset version so all listening devices reset immediately
+    await setDoc(
+      doc(db, 'system', 'config'),
+      {
+        resetVersion: resetTimestamp,
+        lastResetAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    console.warn('Firestore reset failed:', err);
+    throw err;
+  }
 };
 
 // Restore demo votes on centralized Firestore & server
 export const restoreDemoVotes = async (pin: string = '2569'): Promise<VoteRecord[]> => {
-  localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(SEED_VOTES));
+  const restoreTimestamp = Date.now();
+  const freshVotes = SEED_VOTES.map((v, i) => ({
+    ...v,
+    timestamp: new Date(restoreTimestamp + i * 1000).toISOString(),
+  }));
+
+  localStorage.setItem('thakhantho_last_reset_version', String(restoreTimestamp));
+  localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(freshVotes));
 
   if (broadcastChannel) {
     broadcastChannel.postMessage({ type: 'RESTORE_DEMO' });
@@ -434,20 +435,21 @@ export const restoreDemoVotes = async (pin: string = '2569'): Promise<VoteRecord
 
   // 1. Write demo votes to Firestore
   try {
-    const batch = writeBatch(db);
-    SEED_VOTES.forEach((v) => {
-      batch.set(doc(db, 'votes', v.id), v);
-    });
-    await batch.commit();
-
     await setDoc(
       doc(db, 'system', 'config'),
       {
-        resetVersion: Date.now(),
+        resetVersion: restoreTimestamp,
+        lastResetAt: new Date(restoreTimestamp - 10000).toISOString(),
         lastRestoreAt: new Date().toISOString(),
       },
       { merge: true }
     );
+
+    const batch = writeBatch(db);
+    freshVotes.forEach((v) => {
+      batch.set(doc(db, 'votes', v.id), v);
+    });
+    await batch.commit();
   } catch (err) {
     console.warn('Firestore restore demo failed:', err);
   }
@@ -457,13 +459,13 @@ export const restoreDemoVotes = async (pin: string = '2569'): Promise<VoteRecord
     await fetch('/api/votes/restore-demo', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin, demoVotes: SEED_VOTES }),
+      body: JSON.stringify({ pin, demoVotes: freshVotes }),
     });
   } catch (err) {
     console.warn('Failed to call restore-demo API:', err);
   }
 
-  return SEED_VOTES;
+  return freshVotes;
 };
 
 // Real-time synchronization across all devices and tabs via Firestore onSnapshot + SSE
@@ -505,19 +507,11 @@ export const onVotesUpdated = (
           localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify(votesList));
           callback(votesList);
         } else {
-          // If Firestore returns 0 documents, verify if server or local cache still has votes
-          fetchRemoteVotes().then((merged) => {
-            if (merged.length > 0) {
-              callback(merged);
-            } else {
-              localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify([]));
-              callback([]);
-              if (hasUserVotedLocally()) {
-                clearLocalVoterStatus();
-                if (onReset) onReset();
-              }
-            }
-          });
+          // Zero documents in Firestore: system is reset or fresh
+          localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify([]));
+          callback([]);
+          clearLocalVoterStatus();
+          if (onReset) onReset();
         }
       },
       (err) => {
@@ -531,13 +525,14 @@ export const onVotesUpdated = (
       (docSnap) => {
         const data = docSnap.data();
         if (data?.resetVersion) {
-          // If a reset happened, re-check voter status
-          checkRemoteVoterStatus().then((status) => {
-            if (!status.hasVoted && hasUserVotedLocally()) {
-              clearLocalVoterStatus();
-              if (onReset) onReset();
-            }
-          });
+          const lastSeen = localStorage.getItem('thakhantho_last_reset_version');
+          if (String(data.resetVersion) !== lastSeen) {
+            localStorage.setItem('thakhantho_last_reset_version', String(data.resetVersion));
+            clearLocalVoterStatus();
+            localStorage.setItem(STORAGE_VOTES_KEY, JSON.stringify([]));
+            callback([]);
+            if (onReset) onReset();
+          }
         }
       },
       (err) => {

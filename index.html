@@ -24,6 +24,20 @@
           event.preventDefault();
         }
       });
+
+      // Filter out non-fatal internal Firestore BloomFilter re-query fallback warnings
+      const origConsoleWarn = console.warn;
+      console.warn = function (...args) {
+        if (
+          args[0] &&
+          (String(args[0]).includes('BloomFilter') ||
+            String(args[0]).includes('bloom filter') ||
+            (args[1] && String(args[1]).includes('BloomFilter')))
+        ) {
+          return;
+        }
+        origConsoleWarn.apply(console, args);
+      };
     </script>
   </head>
   <body class="font-sans antialiased bg-slate-50 text-slate-800 selection:bg-emerald-200 selection:text-emerald-900">

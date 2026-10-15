@@ -5,7 +5,10 @@ service cloud.firestore {
     match /votes/{voteId} {
       allow read: if true;
       allow create: if request.resource.data.selectedCandidateIds.size() >= 1 &&
-                       request.resource.data.selectedCandidateIds.size() <= 2;
+                       request.resource.data.selectedCandidateIds.size() <= 2 &&
+                       (!exists(/databases/$(database)/documents/system/config) ||
+                        !('lastResetAt' in get(/databases/$(database)/documents/system/config).data) ||
+                        request.resource.data.timestamp >= get(/databases/$(database)/documents/system/config).data.lastResetAt);
       allow update, delete: if true;
     }
 
