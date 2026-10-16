@@ -3,7 +3,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { Candidate, VotingStats } from '../types/voting';
 import { Download, Printer, Award, FileText, Crown } from 'lucide-react';
-import hospitalLogo from '../assets/images/thakhantho_logo.svg';
+import hospitalLogo from '../assets/images/thakhantho_hospital_logo_1791965444472.jpg';
 
 interface A4ReportViewProps {
   stats: VotingStats;
@@ -633,9 +633,6 @@ export const A4ReportView: React.FC<A4ReportViewProps> = ({ stats, candidates })
                 </p>
                 <p className="text-[11px] mt-0.5" style={{ color: '#64748b' }}>
                   ผู้อำนวยการโรงพยาบาลท่าคันโท
-                </p>
-                <p className="text-[10px]" style={{ color: '#94a3b8' }}>
-                  นายแพทย์ชำนาญการพิเศษ รักษาการในตำแหน่ง
                 </p>
               </div>
             </div>

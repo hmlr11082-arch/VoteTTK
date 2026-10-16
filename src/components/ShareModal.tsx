@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Share2, Copy, Check, QrCode, X, ExternalLink, Download, Sparkles, MessageCircle, Database } from 'lucide-react';
-import hospitalLogo from '../assets/images/thakhantho_logo.svg';
+import hospitalLogo from '../assets/images/thakhantho_hospital_logo_1791965444472.jpg';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -21,7 +21,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, onShowT
 
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(shareUrl)}`;
 
-  const shareText = `🏥 ขอเชิญร่วมโหวต "ผู้ช่วยเหลือคนไข้ดีเด่น" โรงพยาบาลท่าคันโท ประจำปี ๒๕๖๙\n⭐ กติกา: โหวตได้สูงสุด 2 ท่าน จากผู้สมัครทั้งหมด 17 ท่าน (เลือกใครก็ได้ ไม่จำกัดหน่วยงาน / ไม่ต้องเลือกหน่วยงานละคน)\n✨ เข้าโหวตได้ทันที (ไม่ต้อง Login / ไม่ต้องใช้อีเมล)\n🔗 ${shareUrl}`;
+  const shareText = `🏥 ขอเชิญร่วมโหวต "ผู้ช่วยเหลือคนไข้ดีเด่น" โรงพยาบาลท่าคันโท ประจำปี ๒๕๖๙\n⭐ กติกา: โหวตได้สูงสุด 2 ท่าน จากผู้สมัครทั้งหมด 17 ท่าน (เลือกใครก็ได้ 1 หรือ 2 ท่าน)\n✨ เข้าโหวตได้ทันที (ไม่ต้อง Login / ไม่ต้องใช้อีเมล)\n🔗 ${shareUrl}`;
 
   const copyToClipboard = async (text: string) => {
     try {

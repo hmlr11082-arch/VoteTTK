@@ -23,7 +23,7 @@ import {
   Share2,
   Info,
 } from 'lucide-react';
-import hospitalLogo from '../assets/images/thakhantho_logo.svg';
+import hospitalLogo from '../assets/images/thakhantho_hospital_logo_1791965444472.jpg';
 
 interface VotingViewProps {
   candidates?: Candidate[];
@@ -182,7 +182,7 @@ export const VotingView: React.FC<VotingViewProps> = ({
               </div>
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/40 backdrop-blur-md text-xs text-emerald-100 border border-emerald-300/30 font-medium">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
-                <span>ไม่ต้องเลือกหน่วยงานละคน • เลือกใครก็ได้ 1 หรือ 2 ท่าน</span>
+                <span>เลือกใครก็ได้ 1 หรือ 2 ท่าน</span>
               </div>
               {hasVoted && (
                 <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-300 text-amber-950 font-bold text-xs sm:text-sm shadow-md animate-pulse">
@@ -306,9 +306,6 @@ export const VotingView: React.FC<VotingViewProps> = ({
               <h3 className="font-extrabold text-sm sm:text-base text-slate-800">
                 กติกาการลงคะแนน (เลือกได้สูงสุด 2 ท่าน):
               </h3>
-              <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white text-[11px] sm:text-xs font-bold shadow-xs">
-                ⚠️ ไม่ต้องเลือกหน่วยงานละ 1 คน
-              </span>
             </div>
             <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
               รายชื่อผู้สมัครเรียงต่อกันตาม<strong>หมายเลข 1 ถึง {candidates.length}</strong> ต่อเนื่องกันทั้งหมดในแนวเดียวกัน ท่านสามารถ<strong>เลือกผู้สมัครท่านใดก็ได้ 1 หรือ 2 ท่าน</strong> จากรายชื่อทั้งหมด {candidates.length} ท่าน โดย<strong>ไม่จำกัดหน่วยงาน</strong> (สามารถเลือก 2 ท่านใดก็ได้ตามความประทับใจ)
