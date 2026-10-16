@@ -3,7 +3,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { Candidate, VotingStats } from '../types/voting';
 import { Download, Printer, Award, FileText, Crown } from 'lucide-react';
-import hospitalLogo from '../assets/images/thakhantho_hospital_logo_1791965444472.jpg';
+import hospitalLogo from '../assets/images/thakhantho_vase_logo.svg';
 
 interface A4ReportViewProps {
   stats: VotingStats;

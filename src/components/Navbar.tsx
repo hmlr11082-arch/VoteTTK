@@ -11,7 +11,7 @@ import {
   Share2,
 } from 'lucide-react';
 import { GoogleSheetMetadata } from '../services/googleSheets';
-import hospitalLogo from '../assets/images/thakhantho_hospital_logo_1791965444472.jpg';
+import hospitalLogo from '../assets/images/thakhantho_vase_logo.svg';
 
 interface NavbarProps {
   currentUser: User | null;

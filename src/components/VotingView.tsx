@@ -23,7 +23,7 @@ import {
   Share2,
   Info,
 } from 'lucide-react';
-import hospitalLogo from '../assets/images/thakhantho_hospital_logo_1791965444472.jpg';
+import hospitalLogo from '../assets/images/thakhantho_vase_logo.svg';
 
 interface VotingViewProps {
   candidates?: Candidate[];

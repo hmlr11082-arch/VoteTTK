@@ -1,0 +1,384 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="100%" height="100%">
+  <defs>
+    <!-- Background sky blue -->
+    <radialGradient id="skyBg" cx="50%" cy="45%" r="65%">
+      <stop offset="0%" stop-color="#c8f0fe"/>
+      <stop offset="60%" stop-color="#b2e9fc"/>
+      <stop offset="100%" stop-color="#9dddf8"/>
+    </radialGradient>
+
+    <!-- 13 Sun Rays Gradients (3D Faceted: light side and dark side) -->
+    <linearGradient id="rayLightGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffb347"/>
+      <stop offset="50%" stop-color="#ff921e"/>
+      <stop offset="100%" stop-color="#f57200"/>
+    </linearGradient>
+    <linearGradient id="rayDarkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ea580c"/>
+      <stop offset="60%" stop-color="#c2410c"/>
+      <stop offset="100%" stop-color="#9a3412"/>
+    </linearGradient>
+
+    <!-- Vase Terracotta Rim & Pedestal Gradients -->
+    <linearGradient id="terracottaLight" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#b45309"/>
+      <stop offset="35%" stop-color="#9a3412"/>
+      <stop offset="70%" stop-color="#7c2d12"/>
+      <stop offset="100%" stop-color="#451a03"/>
+    </linearGradient>
+    <radialGradient id="terracottaRing" cx="40%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#c25e1a"/>
+      <stop offset="45%" stop-color="#9a3412"/>
+      <stop offset="85%" stop-color="#6c220a"/>
+      <stop offset="100%" stop-color="#431407"/>
+    </radialGradient>
+
+    <!-- Porcelain Vase Body Gradients -->
+    <radialGradient id="porcelainGrad" cx="42%" cy="38%" r="60%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="40%" stop-color="#f8fafc"/>
+      <stop offset="75%" stop-color="#edebe8"/>
+      <stop offset="100%" stop-color="#d6d3cd"/>
+    </radialGradient>
+    <linearGradient id="neckGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#e2e8f0"/>
+      <stop offset="25%" stop-color="#ffffff"/>
+      <stop offset="70%" stop-color="#f1f5f9"/>
+      <stop offset="100%" stop-color="#cbd5e1"/>
+    </linearGradient>
+
+    <!-- Caduceus Gold Gradients -->
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="30%" stop-color="#facc15"/>
+      <stop offset="70%" stop-color="#ca8a04"/>
+      <stop offset="100%" stop-color="#854d0e"/>
+    </linearGradient>
+
+    <!-- Caduceus Flame Gradients -->
+    <radialGradient id="flameGrad" cx="50%" cy="70%" r="60%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="35%" stop-color="#f97316"/>
+      <stop offset="80%" stop-color="#dc2626"/>
+      <stop offset="100%" stop-color="#991b1b"/>
+    </radialGradient>
+
+    <!-- Snake Emerald Gradients -->
+    <linearGradient id="snakeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="30%" stop-color="#059669"/>
+      <stop offset="75%" stop-color="#047857"/>
+      <stop offset="100%" stop-color="#064e3b"/>
+    </linearGradient>
+
+    <!-- Emerald 3D Ribbon Banner Gradients -->
+    <linearGradient id="ribbonFront" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#14b8a6"/>
+      <stop offset="20%" stop-color="#0d9488"/>
+      <stop offset="60%" stop-color="#0f766e"/>
+      <stop offset="100%" stop-color="#115e59"/>
+    </linearGradient>
+    <linearGradient id="ribbonDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f766e"/>
+      <stop offset="50%" stop-color="#115e59"/>
+      <stop offset="100%" stop-color="#134e4a"/>
+    </linearGradient>
+    <linearGradient id="ribbonEdge" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#5eead4"/>
+      <stop offset="50%" stop-color="#2dd4bf"/>
+      <stop offset="100%" stop-color="#0d9488"/>
+    </linearGradient>
+
+    <!-- Drop Shadows -->
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0284c7" flood-opacity="0.25"/>
+    </filter>
+    <filter id="bannerShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#042f2e" flood-opacity="0.35"/>
+    </filter>
+    <filter id="text3D" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="1" flood-color="#042f2e" flood-opacity="0.8"/>
+    </filter>
+    <filter id="flameGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#f59e0b" flood-opacity="0.6"/>
+    </filter>
+
+    <!-- Text Path for Ribbon: Smile Curve centered under vase -->
+    <path id="ribbonTextPath" d="M 130 435 Q 300 568 470 435" fill="none" />
+  </defs>
+
+  <!-- Sky Blue Background -->
+  <rect width="600" height="600" fill="url(#skyBg)" />
+
+  <!-- 13 RADIATING SUN RAYS (3D Faceted Diamond Crystal Rays) -->
+  <g id="sunburstRays">
+    <!-- Ray 1 (Leftmost horizontal) -->
+    <g transform="translate(300, 260) rotate(-78)">
+      <polygon points="0,-165 -12,-105 0,-60" fill="url(#rayLightGrad)" />
+      <polygon points="0,-165 12,-105 0,-60" fill="url(#rayDarkGrad)" />
+    </g>
+    <!-- Ray 2 -->
+    <g transform="translate(300, 260) rotate(-65)">
+      <polygon points="0,-175 -13,-110 0,-60" fill="url(#rayLightGrad)" />
+      <polygon points="0,-175 13,-110 0,-60" fill="url(#rayDarkGrad)" />
+    </g>
+    <!-- Ray 3 -->
+    <g transform="translate(300, 260) rotate(-52)">
+      <polygon points="0,-182 -14,-115 0,-60" fill="url(#rayLightGrad)" />
+      <polygon points="0,-182 14,-115 0,-60" fill="url(#rayDarkGrad)" />
+    </g>
+    <!-- Ray 4 -->
+    <g transform="translate(300, 260) rotate(-39)">
+      <polygon points="0,-188 -14,-120 0,-60" fill="url(#rayLightGrad)" />
+      <polygon points="0,-188 14,-120 0,-60" fill="url(#rayDarkGrad)" />
+    </g>
+    <!-- Ray 5 -->
+    <g transform="translate(300, 260) rotate(-26)">
+      <polygon points="0,-194 -15,-122 0,-60" fill="url(#rayLightGrad)" />
+      <polygon points="0,-194 15,-122 0,-60" fill="url(#rayDarkGrad)" />
+    </g>
+    <!-- Ray 6 -->
+    <g transform="translate(300, 260) rotate(-13)">
+      <polygon points="0,-198 -15,-125 0,-60" fill="url(#rayLightGrad)" />
+      <polygon points="0,-198 15,-125 0,-60" fill="url(#rayDarkGrad)" />
+    </g>
+    <!-- Ray 7 (CENTER VERTICAL) -->
+    <g transform="translate(300, 260) rotate(0)">
+      <polygon points="0,-202 -16,-128 0,-60" fill="url(#rayLightGrad)" />
+      <polygon points="0,-202 16,-128 0,-60" fill="url(#rayDarkGrad)" />
+    </g>
+    <!-- Ray 8 -->
+    <g transform="translate(300, 260) rotate(13)">
+      <polygon points="0,-198 -15,-125 0,-60" fill="url(#rayLightGrad)" />
+      <polygon points="0,-198 15,-125 0,-60" fill="url(#rayDarkGrad)" />
+    </g>
+    <!-- Ray 9 -->
+    <g transform="translate(300, 260) rotate(26)">
+      <polygon points="0,-194 -15,-122 0,-60" fill="url(#rayLightGrad)" />
+      <polygon points="0,-194 15,-122 0,-60" fill="url(#rayDarkGrad)" />
+    </g>
+    <!-- Ray 10 -->
+    <g transform="translate(300, 260) rotate(39)">
+      <polygon points="0,-188 -14,-120 0,-60" fill="url(#rayLightGrad)" />
+      <polygon points="0,-188 14,-120 0,-60" fill="url(#rayDarkGrad)" />
+    </g>
+    <!-- Ray 11 -->
+    <g transform="translate(300, 260) rotate(52)">
+      <polygon points="0,-182 -14,-115 0,-60" fill="url(#rayLightGrad)" />
+      <polygon points="0,-182 14,-115 0,-60" fill="url(#rayDarkGrad)" />
+    </g>
+    <!-- Ray 12 -->
+    <g transform="translate(300, 260) rotate(65)">
+      <polygon points="0,-175 -13,-110 0,-60" fill="url(#rayLightGrad)" />
+      <polygon points="0,-175 13,-110 0,-60" fill="url(#rayDarkGrad)" />
+    </g>
+    <!-- Ray 13 (Rightmost horizontal) -->
+    <g transform="translate(300, 260) rotate(78)">
+      <polygon points="0,-165 -12,-105 0,-60" fill="url(#rayLightGrad)" />
+      <polygon points="0,-165 12,-105 0,-60" fill="url(#rayDarkGrad)" />
+    </g>
+  </g>
+
+  <!-- VASE (คนโท) with Drop Shadow -->
+  <g id="khantoVase" filter="url(#softShadow)">
+    <!-- Base / Foot Pedestal of Vase (Tiered circular base) -->
+    <!-- Lower plinth -->
+    <ellipse cx="300" cy="442" rx="76" ry="18" fill="url(#terracottaLight)" />
+    <path d="M 224 442 C 224 456, 376 456, 376 442 L 376 450 C 376 464, 224 464, 224 450 Z" fill="#451a03" />
+    <ellipse cx="300" cy="450" rx="76" ry="16" fill="url(#terracottaRing)" />
+    <!-- Upper plinth ring -->
+    <ellipse cx="300" cy="436" rx="66" ry="14" fill="url(#terracottaLight)" />
+    <ellipse cx="300" cy="434" rx="64" ry="13" fill="#c25725" opacity="0.6" />
+
+    <!-- Terracotta Outer Profile Border (Creates the distinct brown 3D outline of the vase) -->
+    <path d="M 300 135 
+             C 328 135, 335 150, 326 175
+             C 320 192, 330 215, 338 238
+             C 365 265, 412 305, 412 360
+             C 412 418, 355 442, 300 442
+             C 245 442, 188 418, 188 360
+             C 188 305, 235 265, 262 238
+             C 270 215, 280 192, 274 175
+             C 265 150, 272 135, 300 135 Z" 
+          fill="url(#terracottaRing)" />
+
+    <!-- Porcelain White Inner Belly Body -->
+    <path d="M 300 142 
+             C 322 142, 327 155, 320 176
+             C 314 193, 324 216, 332 240
+             C 358 266, 400 304, 400 358
+             C 400 410, 348 434, 300 434
+             C 252 434, 200 410, 200 358
+             C 200 304, 242 266, 268 240
+             C 276 216, 286 193, 280 176
+             C 273 155, 278 142, 300 142 Z" 
+          fill="url(#porcelainGrad)" />
+
+    <!-- Neck Section Glaze Highlights -->
+    <path d="M 282 178 C 290 195, 290 220, 280 240 L 320 240 C 310 220, 310 195, 318 178 Z" fill="url(#neckGrad)" opacity="0.75" />
+
+    <!-- Terracotta Ring / Collar 1 (Middle of neck) -->
+    <g>
+      <ellipse cx="300" cy="208" rx="28" ry="9" fill="url(#terracottaLight)" />
+      <ellipse cx="300" cy="206" rx="27" ry="8" fill="url(#terracottaRing)" />
+      <path d="M 280 204 Q 300 208 318 204" stroke="#ffedd5" stroke-width="1.8" fill="none" opacity="0.7" />
+    </g>
+
+    <!-- Terracotta Ring / Collar 2 (Lower neck shoulder) -->
+    <g>
+      <ellipse cx="300" cy="246" rx="38" ry="12" fill="url(#terracottaLight)" />
+      <ellipse cx="300" cy="244" rx="37" ry="11" fill="url(#terracottaRing)" />
+      <path d="M 272 242 Q 300 247 326 242" stroke="#ffedd5" stroke-width="2.2" fill="none" opacity="0.7" />
+    </g>
+
+    <!-- Vase Mouth (Rim & Interior Opening) -->
+    <g>
+      <!-- Outer lip -->
+      <ellipse cx="300" cy="140" rx="38" ry="14" fill="url(#terracottaLight)" />
+      <ellipse cx="300" cy="138" rx="37" ry="13" fill="url(#terracottaRing)" />
+      <!-- Interior hole shadow -->
+      <ellipse cx="300" cy="138" rx="28" ry="9" fill="#301004" />
+      <ellipse cx="300" cy="139" rx="25" ry="7" fill="#1c0701" />
+      <!-- Top rim specular light highlight -->
+      <path d="M 270 135 C 285 130, 315 130, 330 135" stroke="#fed7aa" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.8" />
+    </g>
+
+    <!-- Soft ambient porcelain shadow on lower right -->
+    <path d="M 330 290 C 370 320, 395 350, 395 380 C 395 415, 350 432, 300 432 C 340 432, 385 410, 385 370 C 385 330, 350 300, 330 290 Z" fill="#94a3b8" opacity="0.25" />
+    <!-- Soft specular highlight on upper left belly -->
+    <ellipse cx="255" cy="305" rx="32" ry="48" transform="rotate(-25, 255, 305)" fill="#ffffff" opacity="0.5" />
+  </g>
+
+  <!-- EMBLEM OF MINISTRY OF PUBLIC HEALTH (On the Vase Body) -->
+  <g id="mophEmblem" transform="translate(0, 10)">
+    <!-- Golden Winged Torch Background Halo / Wings -->
+    <!-- Left Wing -->
+    <path d="M 300 330 
+             C 275 305, 240 305, 225 320
+             C 220 325, 230 332, 240 332
+             C 225 335, 235 342, 248 342
+             C 235 346, 245 354, 260 352
+             C 275 350, 290 342, 300 340 Z" 
+          fill="url(#goldGrad)" 
+          stroke="#854d0e" stroke-width="1.2" />
+
+    <!-- Right Wing -->
+    <path d="M 300 330 
+             C 325 305, 360 305, 375 320
+             C 380 325, 370 332, 360 332
+             C 375 335, 365 342, 352 342
+             C 365 346, 355 354, 340 352
+             C 325 350, 310 342, 300 340 Z" 
+          fill="url(#goldGrad)" 
+          stroke="#854d0e" stroke-width="1.2" />
+
+    <!-- Golden Feather Rib Details -->
+    <path d="M 240 322 Q 270 326 295 332" stroke="#fef08a" stroke-width="1.5" fill="none" opacity="0.8" />
+    <path d="M 245 334 Q 275 336 295 338" stroke="#fef08a" stroke-width="1.5" fill="none" opacity="0.8" />
+    <path d="M 360 322 Q 330 326 305 332" stroke="#fef08a" stroke-width="1.5" fill="none" opacity="0.8" />
+    <path d="M 355 334 Q 325 336 305 338" stroke="#fef08a" stroke-width="1.5" fill="none" opacity="0.8" />
+
+    <!-- Central Golden Staff / Rod -->
+    <rect x="296" y="325" width="8" height="90" rx="3" fill="url(#goldGrad)" stroke="#78350f" stroke-width="1" />
+    <!-- Staff capital/crown -->
+    <ellipse cx="300" cy="325" rx="7" ry="4" fill="#fef08a" stroke="#854d0e" stroke-width="1" />
+    <polygon points="296,325 304,325 300,318" fill="url(#goldGrad)" />
+
+    <!-- Torch Red/Yellow Flame (Glowing) -->
+    <g filter="url(#flameGlow)">
+      <path d="M 300 286 
+               C 292 298, 290 308, 294 316
+               C 297 321, 303 321, 306 316
+               C 310 308, 308 298, 300 286 Z" 
+            fill="url(#flameGrad)" />
+      <!-- Inner flame core -->
+      <path d="M 300 294 
+               C 296 302, 295 308, 298 314
+               C 300 317, 303 317, 304 314
+               C 306 308, 304 302, 300 294 Z" 
+            fill="#fef08a" opacity="0.9" />
+    </g>
+
+    <!-- Emerald Coiled Serpents (2 Caduceus Snakes) -->
+    <!-- Serpent Body - Upper loops -->
+    <path d="M 284 345 
+             C 270 355, 272 372, 288 376
+             C 305 380, 316 385, 314 402
+             C 312 414, 298 418, 292 414" 
+          stroke="url(#snakeGrad)" stroke-width="6.5" stroke-linecap="round" fill="none" />
+    <path d="M 316 345 
+             C 330 355, 328 372, 312 376
+             C 295 380, 284 385, 286 402
+             C 288 414, 302 418, 308 414" 
+          stroke="url(#snakeGrad)" stroke-width="6.5" stroke-linecap="round" fill="none" />
+
+    <!-- Serpent highlights (scales shine) -->
+    <path d="M 284 345 C 270 355, 272 372, 288 376" stroke="#a7f3d0" stroke-width="1.8" fill="none" opacity="0.8" />
+    <path d="M 316 345 C 330 355, 328 372, 312 376" stroke="#a7f3d0" stroke-width="1.8" fill="none" opacity="0.8" />
+
+    <!-- Serpent Heads at Top -->
+    <!-- Left Snake Head -->
+    <ellipse cx="284" cy="344" rx="4.5" ry="3.5" transform="rotate(-30, 284, 344)" fill="#065f46" stroke="#34d399" stroke-width="1" />
+    <circle cx="283" cy="343" r="0.8" fill="#facc15" />
+    <!-- Right Snake Head -->
+    <ellipse cx="316" cy="344" rx="4.5" ry="3.5" transform="rotate(30, 316, 344)" fill="#065f46" stroke="#34d399" stroke-width="1" />
+    <circle cx="317" cy="343" r="0.8" fill="#facc15" />
+  </g>
+
+  <!-- 3D EMERALD GREEN CURVED RIBBON BANNER -->
+  <g id="greenRibbonBanner" filter="url(#bannerShadow)">
+    <!-- Back / Folded Ribbon Tails on Left and Right -->
+    <!-- Left Ribbon Tail Behind -->
+    <path d="M 68 375 L 126 325 L 132 402 L 86 430 Z" fill="url(#ribbonDark)" />
+    <polygon points="68,375 88,430 55,405" fill="#042f2e" />
+
+    <!-- Right Ribbon Tail Behind -->
+    <path d="M 532 375 L 474 325 L 468 402 L 514 430 Z" fill="url(#ribbonDark)" />
+    <polygon points="532,375 512,430 545,405" fill="#042f2e" />
+
+    <!-- Orange Flame Leaf Accents on Ribbon Ends -->
+    <!-- Left flame tip -->
+    <g transform="translate(108, 415) rotate(-15)">
+      <path d="M 0 0 C -8 -16, -6 -28, 4 -36 C 8 -24, 18 -18, 12 -4 C 10 2, 4 4, 0 0 Z" fill="url(#rayLightGrad)" stroke="#c2410c" stroke-width="1.2" />
+      <path d="M 0 0 C -4 -10, -2 -18, 4 -22 C 6 -15, 10 -10, 6 -2 Z" fill="#fef08a" opacity="0.8" />
+    </g>
+    <!-- Right flame tip -->
+    <g transform="translate(492, 415) rotate(15)">
+      <path d="M 0 0 C 8 -16, 6 -28, -4 -36 C -8 -24, -18 -18, -12 -4 C -10 2, -4 4, 0 0 Z" fill="url(#rayLightGrad)" stroke="#c2410c" stroke-width="1.2" />
+      <path d="M 0 0 C 4 -10, 2 -18, -4 -22 C -6 -15, -10 -10, -6 -2 Z" fill="#fef08a" opacity="0.8" />
+    </g>
+
+    <!-- Main Front 3D Ribbon Curved Banner (Smiling Arc across front) -->
+    <!-- Ribbon 3D Underside / Bevel Extrusion -->
+    <path d="M 98 420 
+             Q 300 558 502 420 
+             L 508 436 
+             Q 300 576 92 436 Z" 
+          fill="#042f2e" />
+
+    <!-- Main Ribbon Front Face -->
+    <path d="M 96 370 
+             Q 300 508 504 370 
+             L 502 424 
+             Q 300 562 98 424 Z" 
+          fill="url(#ribbonFront)" 
+          stroke="#0f766e" stroke-width="1.5" />
+
+    <!-- Ribbon Top Bevel Highlight Edge -->
+    <path d="M 96 370 Q 300 508 504 370" stroke="url(#ribbonEdge)" stroke-width="3" fill="none" />
+    <!-- Ribbon Bottom Bevel Edge -->
+    <path d="M 98 424 Q 300 562 502 424" stroke="#042f2e" stroke-width="2" fill="none" />
+
+    <!-- Ribbon Ends 3D Curl Left -->
+    <path d="M 96 370 L 68 375 L 98 424 Z" fill="#0d9488" />
+    <!-- Ribbon Ends 3D Curl Right -->
+    <path d="M 504 370 L 532 375 L 502 424 Z" fill="#0d9488" />
+
+    <!-- THAI TEXT: โรงพยาบาลท่าคันโท (White 3D Text Curved Along Ribbon) -->
+    <text filter="url(#text3D)" font-family="'Prompt', 'Sarabun', 'Noto Sans Thai', 'Thonburi', sans-serif" font-weight="700" font-size="34" fill="#ffffff" letter-spacing="1.5">
+      <textPath href="#ribbonTextPath" startOffset="50%" text-anchor="middle">
+        โรงพยาบาลท่าคันโท
+      </textPath>
+    </text>
+  </g>
+</svg>

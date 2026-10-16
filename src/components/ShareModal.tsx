@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Share2, Copy, Check, QrCode, X, ExternalLink, Download, Sparkles, MessageCircle, Database } from 'lucide-react';
-import hospitalLogo from '../assets/images/thakhantho_hospital_logo_1791965444472.jpg';
+import hospitalLogo from '../assets/images/thakhantho_vase_logo.svg';
 
 interface ShareModalProps {
   isOpen: boolean;
