@@ -11,7 +11,7 @@ import {
   Share2,
 } from 'lucide-react';
 import { GoogleSheetMetadata } from '../services/googleSheets';
-import hospitalLogo from '../assets/images/thakhantho_hospital_logo_1791965444472.jpg';
+import hospitalLogo from '../assets/images/thakhantho_logo.svg';
 
 interface NavbarProps {
   currentUser: User | null;
@@ -76,11 +76,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center gap-3.5 cursor-pointer"
             onClick={() => scrollTo('section-vote')}
           >
-            <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl overflow-hidden bg-white shadow-md shadow-emerald-600/15 ring-2 ring-emerald-100 flex items-center justify-center p-0.5 hover:scale-105 transition-transform">
+            <div className="w-14 h-14 sm:w-15 sm:h-15 shrink-0 rounded-2xl overflow-hidden bg-white shadow-md shadow-emerald-600/15 ring-2 ring-emerald-100 flex items-center justify-center p-1 hover:scale-105 transition-transform aspect-square">
               <img
                 src={hospitalLogo}
                 alt="โลโก้โรงพยาบาลท่าคันโท"
-                className="w-full h-full object-contain rounded-xl"
+                className="w-full h-full object-contain rounded-xl aspect-square"
               />
             </div>
             <div>

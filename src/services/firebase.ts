@@ -12,6 +12,14 @@ import firebaseConfig from '../../firebase-applet-config.json';
 // Silence non-fatal internal Firestore SDK warnings (e.g. BloomFilter existence filter fallback)
 setLogLevel('error');
 
+if (typeof window !== 'undefined') {
+  const origWarn = console.warn;
+  console.warn = (...args: any[]) => {
+    if (args.some((a) => typeof a === 'string' && a.includes('BloomFilter'))) return;
+    origWarn.apply(console, args);
+  };
+}
+
 export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 const dbId = (firebaseConfig as any).firestoreDatabaseId || '(default)';

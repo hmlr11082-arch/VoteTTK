@@ -21,8 +21,9 @@ import {
   CheckCircle2,
   Users,
   Share2,
+  Info,
 } from 'lucide-react';
-import hospitalLogo from '../assets/images/thakhantho_hospital_logo_1791965444472.jpg';
+import hospitalLogo from '../assets/images/thakhantho_logo.svg';
 
 interface VotingViewProps {
   candidates?: Candidate[];
@@ -48,7 +49,6 @@ export const VotingView: React.FC<VotingViewProps> = ({
   onShowToast,
 }) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [activeFilter, setActiveFilter] = useState<Department | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showReceipt, setShowReceipt] = useState<VoteRecord | null>(null);
@@ -140,18 +140,18 @@ export const VotingView: React.FC<VotingViewProps> = ({
     }, 400);
   };
 
-  // Filter candidates
-  const filteredCandidates = candidates.filter((c) => {
-    const matchesFilter = activeFilter === 'ALL' || c.department === activeFilter;
-    const query = searchQuery.trim().toLowerCase();
-    const matchesSearch =
-      !query ||
-      c.name.toLowerCase().includes(query) ||
-      c.nickname.toLowerCase().includes(query) ||
-      c.number.toString().includes(query) ||
-      c.departmentLabel.toLowerCase().includes(query);
-    return matchesFilter && matchesSearch;
-  });
+  // Filter & Sort candidates: list all candidates continuously in order of number 1 to 17
+  const filteredCandidates = candidates
+    .filter((c) => {
+      const query = searchQuery.trim().toLowerCase();
+      return (
+        !query ||
+        c.name.toLowerCase().includes(query) ||
+        c.nickname.toLowerCase().includes(query) ||
+        c.number.toString().includes(query)
+      );
+    })
+    .sort((a, b) => a.number - b.number);
 
   const selectedCandidatesList = candidates.filter((c) => selectedIds.includes(c.id));
 
@@ -178,11 +178,11 @@ export const VotingView: React.FC<VotingViewProps> = ({
             <div className="flex flex-wrap items-center gap-2.5 pt-2">
               <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/20 backdrop-blur-md text-xs sm:text-sm font-semibold text-white border border-white/20">
                 <span className="w-2 h-2 rounded-full bg-amber-300 animate-ping"></span>
-                กติกาสำคัญ: สามารถเลือกได้สูงสุด 2 ท่านเท่านั้น
+                กติกา: โหวตได้สูงสุด 2 ท่าน จากผู้สมัครทั้งหมด {candidates.length} ท่าน (เรียงหมายเลขต่อเนื่อง ไม่จำกัดหน่วยงาน)
               </div>
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/40 backdrop-blur-md text-xs text-emerald-100 border border-emerald-300/30 font-medium">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
-                <span>เปิดให้ลงคะแนนได้ทันที • ไม่ต้องใช้อีเมล</span>
+                <span>ไม่ต้องเลือกหน่วยงานละคน • เลือกใครก็ได้ 1 หรือ 2 ท่าน</span>
               </div>
               {hasVoted && (
                 <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-300 text-amber-950 font-bold text-xs sm:text-sm shadow-md animate-pulse">
@@ -204,11 +204,11 @@ export const VotingView: React.FC<VotingViewProps> = ({
           </div>
 
           <div className="hidden lg:flex flex-col items-center justify-center p-3 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 shadow-lg">
-            <div className="w-28 h-28 rounded-full overflow-hidden bg-white p-1 shadow-md ring-4 ring-white/20">
+            <div className="w-28 h-28 rounded-3xl overflow-hidden bg-white p-1.5 shadow-md ring-4 ring-white/25 aspect-square flex items-center justify-center">
               <img
                 src={hospitalLogo}
                 alt="ตราสัญลักษณ์โรงพยาบาลท่าคันโท"
-                className="w-full h-full object-contain rounded-full"
+                className="w-full h-full object-contain rounded-2xl aspect-square"
               />
             </div>
             <span className="text-[11px] font-bold text-white mt-2 tracking-wide">
@@ -295,55 +295,53 @@ export const VotingView: React.FC<VotingViewProps> = ({
         </div>
       )}
 
-      {/* Control Bar: Filters & Search */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-6">
-        {/* Department Filters */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
-          <button
-            onClick={() => setActiveFilter('ALL')}
-            className={`px-4 py-2 rounded-2xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap ${
-              activeFilter === 'ALL'
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
-                : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-emerald-50 hover:text-emerald-700'
-            }`}
-          >
-            ทั้งหมด ({candidates.length})
-          </button>
-          {DEPARTMENTS.map((dept) => {
-            const count = candidates.filter((c) => c.department === dept.key).length;
-            const isActive = activeFilter === dept.key;
-            return (
-              <button
-                key={dept.key}
-                onClick={() => setActiveFilter(dept.key)}
-                className={`px-3.5 py-2 rounded-2xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                  isActive
-                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
-                    : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-emerald-50 hover:text-emerald-700'
-                }`}
-              >
-                <span>{dept.short}</span>
-                <span
-                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                    isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
+      {/* Rule Notice Banner: Prevent misunderstanding */}
+      <div className="mb-6 rounded-3xl bg-gradient-to-r from-amber-50 via-emerald-50/70 to-teal-50 border-2 border-amber-300/90 p-4 sm:p-5 shadow-sm">
+        <div className="flex items-start sm:items-center gap-3.5">
+          <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20 mt-0.5 sm:mt-0">
+            <Info className="w-5 h-5 stroke-[2.5]" />
+          </div>
+          <div className="flex-1">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <h3 className="font-extrabold text-sm sm:text-base text-slate-800">
+                กติกาการลงคะแนน (เลือกได้สูงสุด 2 ท่าน):
+              </h3>
+              <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white text-[11px] sm:text-xs font-bold shadow-xs">
+                ⚠️ ไม่ต้องเลือกหน่วยงานละ 1 คน
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
+              รายชื่อผู้สมัครเรียงต่อกันตาม<strong>หมายเลข 1 ถึง {candidates.length}</strong> ต่อเนื่องกันทั้งหมดในแนวเดียวกัน ท่านสามารถ<strong>เลือกผู้สมัครท่านใดก็ได้ 1 หรือ 2 ท่าน</strong> จากรายชื่อทั้งหมด {candidates.length} ท่าน โดย<strong>ไม่จำกัดหน่วยงาน</strong> (สามารถเลือก 2 ท่านใดก็ได้ตามความประทับใจ)
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Control Bar: Title & Search */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-6 bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm">
+            {filteredCandidates.length}
+          </div>
+          <div>
+            <h3 className="font-extrabold text-slate-800 text-sm sm:text-base">
+              รายชื่อผู้สมัครทั้งหมด {filteredCandidates.length} ท่าน (เรียงหมายเลข 1 - {candidates.length})
+            </h3>
+            <p className="text-[11px] text-slate-500">
+              คลิกที่การ์ดผู้สมัครเพื่อลงคะแนนได้ทันที • ทุกคนอยู่ในตำแหน่งผู้ช่วยเหลือคนไข้ในแนวเดียวกันทั้งหมด
+            </p>
+          </div>
         </div>
 
         {/* Search Bar */}
-        <div className="relative min-w-[260px]">
+        <div className="relative min-w-[260px] sm:w-72">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="ค้นหาชื่อ, ชื่อเล่น, หมายเลข..."
-            className="w-full pl-10 pr-4 py-2 bg-white rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
+            className="w-full pl-10 pr-4 py-2 bg-slate-50 hover:bg-white rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-colors shadow-2xs"
           />
           {searchQuery && (
             <button
@@ -374,20 +372,20 @@ export const VotingView: React.FC<VotingViewProps> = ({
             <div className="text-sm font-bold text-slate-800 flex items-center gap-2">
               <span>สถานะการเลือก:</span>
               {selectedIds.length === 0 && (
-                <span className="text-slate-500 font-normal">ยังไม่ได้เลือกผู้สมัคร (เลือกได้สูงสุด 2 ท่าน)</span>
+                <span className="text-slate-500 font-normal">ยังไม่ได้เลือกผู้สมัคร (เลือกได้สูงสุด 2 ท่าน จาก 18 ท่าน)</span>
               )}
               {selectedIds.length === 1 && (
-                <span className="text-amber-600 font-medium">เลือกแล้ว 1 ท่าน (สามารถเลือกเพิ่มได้อีก 1 ท่าน)</span>
+                <span className="text-amber-600 font-medium">เลือกแล้ว 1 ท่าน (สามารถเลือกเพิ่มได้อีก 1 ท่าน หรือกดส่งคะแนนได้เลย)</span>
               )}
               {selectedIds.length === 2 && (
                 <span className="text-emerald-600 font-semibold flex items-center gap-1">
                   <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                  เลือกครบ 2 ท่านตามกติกาแล้ว
+                  เลือกครบ 2 ท่านตามกติกาแล้ว (พร้อมส่งคะแนน)
                 </span>
               )}
             </div>
             <p className="text-xs text-slate-500">
-              คลิกที่การ์ดเพื่อเลือกหรือยกเลิกการเลือก
+              คลิกที่การ์ดเพื่อเลือกหรือยกเลิกการเลือก • เลือกได้จากทั้ง {candidates.length} ท่านโดยตรง ไม่จำกัดหน่วยงาน
             </p>
           </div>
         </div>
@@ -451,12 +449,8 @@ export const VotingView: React.FC<VotingViewProps> = ({
                   >
                     #{c.number}
                   </span>
-                  <span
-                    className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${
-                      dept?.badgeClass || 'bg-slate-100 text-slate-700'
-                    }`}
-                  >
-                    {dept?.label}
+                  <span className="text-xs px-2.5 py-1 rounded-full font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80">
+                    ผู้ช่วยเหลือคนไข้
                   </span>
                 </div>
 
@@ -635,7 +629,7 @@ export const VotingView: React.FC<VotingViewProps> = ({
                         <div className="text-xs font-bold text-slate-800">
                           #{c.number} {c.name} ({c.nickname})
                         </div>
-                        <div className="text-[10px] text-slate-500">{c.departmentLabel}</div>
+                        <div className="text-[10px] text-emerald-700 font-medium">ผู้ช่วยเหลือคนไข้</div>
                       </div>
                     </div>
                   </div>

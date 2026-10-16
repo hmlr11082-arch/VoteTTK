@@ -56,7 +56,6 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
   onOpenSheetVerifyModal,
   sheetConnected = false,
 }) => {
-  const [deptFilter, setDeptFilter] = useState<Department | 'ALL'>('ALL');
   const [sortBy, setSortBy] = useState<'rank' | 'number'>('rank');
   const [showConfirmReset, setShowConfirmReset] = useState(false);
   const [showConfirmDemo, setShowConfirmDemo] = useState(false);
@@ -65,36 +64,23 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
   const top2 = stats.topCandidates[1];
   const top3 = stats.topCandidates[2];
 
-  // Filtered tallies
-  const filteredTallies = stats.tallies
-    .filter((t) => deptFilter === 'ALL' || t.department === deptFilter)
-    .sort((a, b) => {
-      if (sortBy === 'rank') {
-        return a.rank - b.rank || b.voteCount - a.voteCount;
-      }
-      return a.number - b.number;
-    });
-
-  // Calculate highest department
-  let topDeptKey: Department = 'GENERAL';
-  let maxDeptVotes = -1;
-  (Object.keys(stats.departmentCounts) as Department[]).forEach((d) => {
-    if (stats.departmentCounts[d] > maxDeptVotes) {
-      maxDeptVotes = stats.departmentCounts[d];
-      topDeptKey = d;
+  // Sorted tallies (continuous listing of all candidates)
+  const sortedTallies = [...stats.tallies].sort((a, b) => {
+    if (sortBy === 'rank') {
+      return a.rank - b.rank || b.voteCount - a.voteCount;
     }
+    return a.number - b.number;
   });
-  const topDept = DEPARTMENTS.find((d) => d.key === topDeptKey);
 
   // CSV export
   const exportCSV = () => {
-    const headers = ['อันดับ', 'หมายเลข', 'ชื่อ-สกุล', 'ชื่อเล่น', 'แผนก/กลุ่มงาน', 'คะแนนโหวต', 'ร้อยละ'];
+    const headers = ['อันดับ', 'หมายเลข', 'ชื่อ-สกุล', 'ชื่อเล่น', 'ตำแหน่ง', 'คะแนนโหวต', 'ร้อยละ'];
     const rows = stats.tallies.map((t) => [
       t.rank,
       t.number,
       `"${t.name}"`,
       `"${t.nickname}"`,
-      `"${t.departmentLabel}"`,
+      `"ผู้ช่วยเหลือคนไข้"`,
       t.voteCount,
       `${t.percentage}%`,
     ]);
@@ -247,19 +233,19 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
           </div>
         </div>
 
-        {/* Card 4: Top Department */}
+        {/* Card 4: Total Candidates */}
         <div className="bg-white rounded-3xl p-5 border border-emerald-100 shadow-2xs relative overflow-hidden">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-slate-500">กลุ่มงานที่ได้รับโหวตสูงสุด</span>
+            <span className="text-xs font-semibold text-slate-500">ผู้สมัครรับการโหวต</span>
             <div className="w-9 h-9 rounded-2xl bg-cyan-50 text-cyan-600 flex items-center justify-center">
-              <Award className="w-5 h-5" />
+              <Users className="w-5 h-5" />
             </div>
           </div>
           <div className="text-base sm:text-lg font-bold text-slate-800 truncate">
-            {stats.totalVotes > 0 && maxDeptVotes > 0 && topDept ? topDept.label : '-'}
+            {candidates.length} ท่าน (ครบทุกคน)
           </div>
           <div className="mt-1 text-xs text-cyan-600 font-bold">
-            {stats.totalVotes > 0 && maxDeptVotes > 0 ? `${maxDeptVotes} คะแนนสะสม` : 'ยังไม่มีการลงคะแนน'}
+            หมายเลข 1 ถึง {candidates.length} ในแนวเดียวกัน
           </div>
         </div>
       </div>
@@ -295,8 +281,8 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                 </div>
                 <div className="font-bold text-slate-800 text-base">#{top2.number} {top2.name}</div>
                 <div className="text-xs font-bold text-emerald-700">({top2.nickname})</div>
-                <span className="mt-1 text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">
-                  {top2.departmentLabel}
+                <span className="mt-1 text-[11px] px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-semibold border border-slate-200">
+                  ผู้ช่วยเหลือคนไข้
                 </span>
                 <div className="mt-3 text-lg font-black text-slate-800">
                   {top2.voteCount} <span className="text-xs font-normal text-slate-400">คะแนน</span>
@@ -325,8 +311,8 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
               </div>
               <div className="font-extrabold text-slate-900 text-lg">#{top1.number} {top1.name}</div>
               <div className="text-sm font-extrabold text-emerald-700">({top1.nickname})</div>
-              <span className="mt-1 text-xs px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold">
-                {top1.departmentLabel}
+              <span className="mt-1 text-xs px-3 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold border border-amber-300">
+                ผู้ช่วยเหลือคนไข้
               </span>
               <div className="mt-3 text-2xl font-black text-amber-600">
                 {top1.voteCount} <span className="text-xs font-normal text-slate-400">คะแนน</span>
@@ -351,8 +337,8 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                 </div>
                 <div className="font-bold text-slate-800 text-base">#{top3.number} {top3.name}</div>
                 <div className="text-xs font-bold text-emerald-700">({top3.nickname})</div>
-                <span className="mt-1 text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">
-                  {top3.departmentLabel}
+                <span className="mt-1 text-[11px] px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-semibold border border-slate-200">
+                  ผู้ช่วยเหลือคนไข้
                 </span>
                 <div className="mt-3 text-lg font-black text-slate-800">
                   {top3.voteCount} <span className="text-xs font-normal text-slate-400">คะแนน</span>
@@ -405,43 +391,7 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
         </div>
       )}
 
-      {/* Department Breakdown Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {DEPARTMENTS.map((dept) => {
-          const deptVotes = stats.departmentCounts[dept.key] || 0;
-          const share = stats.totalVotes > 0 ? ((deptVotes / stats.totalVotes) * 100).toFixed(1) : '0';
-          const deptCandidates = candidates.filter((c) => c.department === dept.key);
 
-          return (
-            <div
-              key={dept.key}
-              onClick={() => setDeptFilter(deptFilter === dept.key ? 'ALL' : dept.key)}
-              className={`bg-white rounded-2xl p-4 border transition-all cursor-pointer ${
-                deptFilter === dept.key
-                  ? 'border-emerald-500 ring-2 ring-emerald-500/20 shadow-sm'
-                  : 'border-slate-100 hover:border-emerald-200'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-slate-700 truncate">{dept.label}</span>
-                <span className="text-[11px] font-semibold text-slate-400">{deptCandidates.length} ท่าน</span>
-              </div>
-              <div className="flex items-baseline justify-between">
-                <div className="text-xl font-extrabold text-slate-800">
-                  {deptVotes} <span className="text-xs font-normal text-slate-400">คะแนน</span>
-                </div>
-                <div className="text-xs font-bold text-emerald-600">{share}%</div>
-              </div>
-              <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2.5 overflow-hidden">
-                <div
-                  className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${share}%` }}
-                ></div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
 
       {/* Main Leaderboard Table & Live Ticker */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -461,28 +411,16 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
-                className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700"
+                className="px-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
               >
-                <option value="rank">เรียงตามอันดับคะแนน</option>
-                <option value="number">เรียงตามหมายเลขผู้สมัคร</option>
-              </select>
-
-              <select
-                value={deptFilter}
-                onChange={(e) => setDeptFilter(e.target.value as any)}
-                className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700"
-              >
-                <option value="ALL">ทุกแผนก ({candidates.length} ท่าน)</option>
-                <option value="GENERAL">ผู้ช่วยเหลือคนไข้ทั่วไป</option>
-                <option value="OPD">เจ้าหน้าที่ OPD</option>
-                <option value="IPD">เจ้าหน้าที่ IPD</option>
-                <option value="LR">เจ้าหน้าที่ LR (ห้องคลอด)</option>
+                <option value="rank">เรียงตามอันดับคะแนน (มากไปน้อย)</option>
+                <option value="number">เรียงตามหมายเลขผู้สมัคร (1 - {candidates.length})</option>
               </select>
             </div>
           </div>
 
           <div className="space-y-3">
-            {filteredTallies.map((t) => {
+            {sortedTallies.map((t) => {
               const maxScore = stats.topCandidates[0]?.voteCount || 1;
               const relativeBarWidth = maxScore > 0 ? Math.max(5, (t.voteCount / maxScore) * 100) : 0;
 
@@ -525,8 +463,8 @@ export const LiveDashboard: React.FC<LiveDashboardProps> = ({
                         <span className="text-xs font-bold text-emerald-700 ml-1.5">
                           ({t.nickname})
                         </span>
-                        <span className="hidden sm:inline-block text-[11px] text-slate-400 ml-2">
-                          • {t.departmentLabel}
+                        <span className="hidden sm:inline-block text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-medium ml-2">
+                          ผู้ช่วยเหลือคนไข้
                         </span>
                       </div>
                       <div className="text-right shrink-0">

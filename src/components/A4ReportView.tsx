@@ -3,7 +3,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { Candidate, VotingStats } from '../types/voting';
 import { Download, Printer, Award, FileText, Crown } from 'lucide-react';
-import hospitalLogo from '../assets/images/thakhantho_hospital_logo_1791965444472.jpg';
+import hospitalLogo from '../assets/images/thakhantho_logo.svg';
 
 interface A4ReportViewProps {
   stats: VotingStats;
@@ -276,17 +276,17 @@ export const A4ReportView: React.FC<A4ReportViewProps> = ({ stats, candidates })
             >
               {/* Official Emblem */}
               <div
-                className="w-20 h-20 mx-auto mb-2.5 rounded-full overflow-hidden p-0.5"
+                className="w-20 h-20 mx-auto mb-2.5 rounded-2xl overflow-hidden p-1 aspect-square"
                 style={{
                   backgroundColor: '#ffffff',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                  border: '2px solid #a7f3d0',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+                  border: '1.5px solid #a7f3d0',
                 }}
               >
                 <img
                   src={hospitalLogo}
                   alt="ตราสัญลักษณ์โรงพยาบาลท่าคันโท"
-                  className="w-full h-full object-contain rounded-full"
+                  className="w-full h-full object-contain rounded-xl aspect-square"
                 />
               </div>
               <h1 className="text-lg font-bold tracking-tight" style={{ color: '#0f172a' }}>
@@ -374,8 +374,8 @@ export const A4ReportView: React.FC<A4ReportViewProps> = ({ stats, candidates })
                     >
                       ({top1?.nickname})
                     </div>
-                    <div className="text-[10px] truncate" style={{ color: '#64748b' }}>
-                      {top1?.departmentLabel}
+                    <div className="text-[10px] truncate" style={{ color: '#047857', fontWeight: 600 }}>
+                      ผู้ช่วยเหลือคนไข้
                     </div>
                     <div
                       className="text-xs font-bold mt-1"
@@ -411,8 +411,8 @@ export const A4ReportView: React.FC<A4ReportViewProps> = ({ stats, candidates })
                     >
                       ({top2?.nickname})
                     </div>
-                    <div className="text-[10px] truncate" style={{ color: '#64748b' }}>
-                      {top2?.departmentLabel}
+                    <div className="text-[10px] truncate" style={{ color: '#475569', fontWeight: 600 }}>
+                      ผู้ช่วยเหลือคนไข้
                     </div>
                     <div
                       className="text-xs font-bold mt-1"
@@ -448,8 +448,8 @@ export const A4ReportView: React.FC<A4ReportViewProps> = ({ stats, candidates })
                     >
                       ({top3?.nickname})
                     </div>
-                    <div className="text-[10px] truncate" style={{ color: '#64748b' }}>
-                      {top3?.departmentLabel}
+                    <div className="text-[10px] truncate" style={{ color: '#9a3412', fontWeight: 600 }}>
+                      ผู้ช่วยเหลือคนไข้
                     </div>
                     <div
                       className="text-xs font-bold mt-1"
@@ -492,7 +492,7 @@ export const A4ReportView: React.FC<A4ReportViewProps> = ({ stats, candidates })
                     <th className="py-1.5 px-2 text-center w-12" style={{ borderRight: '1px solid #a7f3d0' }}>เบอร์</th>
                     <th className="py-1.5 px-2.5" style={{ borderRight: '1px solid #a7f3d0' }}>ชื่อ - สกุล</th>
                     <th className="py-1.5 px-2 text-center w-16" style={{ borderRight: '1px solid #a7f3d0' }}>ชื่อเล่น</th>
-                    <th className="py-1.5 px-2.5" style={{ borderRight: '1px solid #a7f3d0' }}>กลุ่มงาน / แผนก</th>
+                    <th className="py-1.5 px-2.5" style={{ borderRight: '1px solid #a7f3d0' }}>ตำแหน่ง</th>
                     <th className="py-1.5 px-2 text-right w-16" style={{ borderRight: '1px solid #a7f3d0' }}>คะแนน</th>
                     <th className="py-1.5 px-2 text-right w-14">ร้อยละ</th>
                   </tr>
@@ -547,7 +547,7 @@ export const A4ReportView: React.FC<A4ReportViewProps> = ({ stats, candidates })
                           className="py-1 px-2.5"
                           style={{ borderRight: '1px solid #e2e8f0', color: '#475569' }}
                         >
-                          {t.departmentLabel}
+                          ผู้ช่วยเหลือคนไข้
                         </td>
                         <td
                           className="py-1 px-2 text-right font-bold"
@@ -565,42 +565,42 @@ export const A4ReportView: React.FC<A4ReportViewProps> = ({ stats, candidates })
               </table>
             </div>
 
-            {/* Department Summary Table */}
+            {/* Certified Summary Stats (Concealed Department, Unified Overview) */}
             <div className="grid grid-cols-4 gap-2 mb-4 text-[10px]">
               <div
                 className="rounded p-1.5 text-center"
-                style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}
+                style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }}
               >
-                <div style={{ color: '#64748b' }}>ผู้ช่วยเหลือทั่วไป (5 คน)</div>
+                <div style={{ color: '#166534' }}>ผู้มาใช้สิทธิโหวตทั้งหมด</div>
                 <div className="font-bold text-xs mt-0.5" style={{ color: '#0f172a' }}>
-                  {stats.departmentCounts.GENERAL || 0} คะแนน
+                  {stats.totalVoters} ท่าน
+                </div>
+              </div>
+              <div
+                className="rounded p-1.5 text-center"
+                style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }}
+              >
+                <div style={{ color: '#166534' }}>คะแนนโหวตรวมทั้งหมด</div>
+                <div className="font-bold text-xs mt-0.5" style={{ color: '#0f172a' }}>
+                  {stats.totalVotes} คะแนน
+                </div>
+              </div>
+              <div
+                className="rounded p-1.5 text-center"
+                style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a' }}
+              >
+                <div style={{ color: '#92400e' }}>ผู้นำคะแนนอันดับ ๑</div>
+                <div className="font-bold text-xs mt-0.5 truncate" style={{ color: '#0f172a' }}>
+                  {top1 && stats.totalVotes > 0 ? `#${top1.number} ${top1.name} (${top1.nickname})` : '-'}
                 </div>
               </div>
               <div
                 className="rounded p-1.5 text-center"
                 style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}
               >
-                <div style={{ color: '#64748b' }}>เจ้าหน้าที่ OPD (3 คน)</div>
-                <div className="font-bold text-xs mt-0.5" style={{ color: '#0f172a' }}>
-                  {stats.departmentCounts.OPD || 0} คะแนน
-                </div>
-              </div>
-              <div
-                className="rounded p-1.5 text-center"
-                style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}
-              >
-                <div style={{ color: '#64748b' }}>เจ้าหน้าที่ IPD (6 คน)</div>
-                <div className="font-bold text-xs mt-0.5" style={{ color: '#0f172a' }}>
-                  {stats.departmentCounts.IPD || 0} คะแนน
-                </div>
-              </div>
-              <div
-                className="rounded p-1.5 text-center"
-                style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}
-              >
-                <div style={{ color: '#64748b' }}>เจ้าหน้าที่ LR (4 คน)</div>
-                <div className="font-bold text-xs mt-0.5" style={{ color: '#0f172a' }}>
-                  {stats.departmentCounts.LR || 0} คะแนน
+                <div style={{ color: '#64748b' }}>ระบบตรวจนับคะแนน</div>
+                <div className="font-bold text-xs mt-0.5 text-emerald-700">
+                  ระบบกลาง รพ.ท่าคันโท
                 </div>
               </div>
             </div>
